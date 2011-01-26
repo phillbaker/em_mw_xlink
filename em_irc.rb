@@ -1,30 +1,9 @@
 require 'rubygems'
-#require "bundler/setup"
+require 'bundler/setup'
 
 # require gems
 require 'eventmachine'
 
-# class EmIrcClient < EventMachine::Connection
-#   def initialize()
-#     super
-#   end
-# 
-#   def receive_data(data)
-#     p data
-#   end
-# end
-# 
-# EventMachine::run() do
-#   EventMachine::connect('irc.freenode.net', 6667, EmIrcClient) #pass handler, channel, server, port, bot-name
-# end
-# #irc.wikimedia.org en.wikipedia
-# #http://webchat.freenode.net/ => 
-# 
-# #handle quitting (CTRL-C)
-# trap("QUIT") do 
-#   EM::stop() #or EventMachine::stop_event_loop?
-#   exit
-# end
 
 module Mini
   class Bot
@@ -167,9 +146,9 @@ Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
   :mini_port => 12345,
   #:web_port => 2345,
-  :server => 'irc.freenode.net',#server,
+  :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'yasb',#user,
+  :user => 'yyasb',#user,
   :password => '',#password, 
-  :channels => ['yasb']#[*channels]
+  :channels => ['en.wikipedia']#[*channels]
 )
