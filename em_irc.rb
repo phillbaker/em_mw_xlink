@@ -149,7 +149,6 @@ module Mini
       	  samples = DB[:samples]
       	  samples << fields
       	  if should_follow?(fields[:title])
-      	    puts 'following'
       	    follow_revision(fields)
     	    end
     	  end
@@ -170,13 +169,17 @@ module Mini
       
       #parse it for links
       #if there are links, investigate!
+      #get_diff_and_launch_detectives = proc do
+      #end
       #EM.defer()
     end
     
     def get_diff_data revision_id
       #get the xml from wikipedia
-      url = form_url({:prop => :revisions, :revids => rev_id, :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
+      url = form_url({:prop => :revisions, :revids => revision_id, :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
+      puts url
       EM::HttpRequest.new(url).get.callback do |http|
+        puts 'callback'
         puts http.response.to_s[0..100]
       end
       
