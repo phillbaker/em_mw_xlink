@@ -142,7 +142,7 @@ module Mini
     
     def handle_line line
       process_line = proc do
-        
+        sleep(5)
       	if line =~ Mediawiki::IRC_REGEXP
       	  fields = process_irc(line)
       	  sample_table = DB[:samples]
@@ -165,81 +165,106 @@ module Mini
     def follow_revision fields
       #get the xml from wikipedia
       url = form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
-      EM::HttpRequest.new(url).get.callback do |http|
-        xml = http.response.to_s
-        #parse the xml
-        noked = Nokogiri.XML(xml)
-        #test to see if we have a badrevid
-        if noked.css('badrevids').first == nil
-          attrs = {}
-          #page attrs
-          noked.css('page').first.attributes.each do |k,v|
-            attrs[v.name] = v.value
-          end
-
-          #revision attrs
-          noked.css('rev').first.attributes.each do |k,v|
-            attrs[v.name] = v.value
-          end
-
-          #tags
-          tags = []
-          noked.css('tags').children.each do |child|
-            tags << child.children.to_s
-          end
-
-          #diff attributes
-          diff_elem = noked.css('diff')
-          diff_elem.first.attributes.each do |k,v|
-            attrs[v.name] = v.value
-          end
-          diff = diff_elem.children.to_s
-          
-          #pull out the diff_xml (TODO and other stuff)
-          #[diff, attrs, tags]
-          
-          #parse it for links
-          links = find_links(diff)
-          #if there are links, investigate!
-          unless links.empty?
-            # investigate = proc do
-            #   follow_links({:diff => diff, :attributes => attrs, :tags => tags, :links => links})
-            # end
-            # EM.defer(investigate)
-            
-            #simply pulling the source via EM won't block...
-            links.each do |url_and_desc|
-              puts 'following link!'
-              EM::HttpRequest.new(url_and_desc.first).get.callback do |http|
-                puts 'header: ' + http.response_header.to_s[0..50]
-                puts 'body: ' + http.response.to_s[0..50]
-                
-                fields = {
-                  :source => http.response, 
-                  :headers => http.response_header, 
-                  :url => url_and_desc.first, 
-                  :revision_id => fields[:revision_id], 
-                  :wikilink_description => url_and_desc.last
-                }
-                
-                link_table = DB[:links]
-            	  link_table << fields
-              end
-            end
-          end
-        else
-          puts "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+      #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
+      begin
+        EM::HttpRequest.new(url).get.callback do |http|
+          follow_diff(fields, http.response.to_s)
         end
+      rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+        puts "followed revision: #{e}"
       end
     end
     
-    # def follow_links info
-    #   info[:links].each do link_and_desc
-    #     EM::HttpRequest.new(url).get.callback do |http|
-    #       
-    #     end
-    #   end
-    # end
+    def follow_diff fields, xml
+      #parse the xml
+      noked = Nokogiri.XML(xml)
+      #test to see if we have a badrevid
+      if noked.css('badrevids').first == nil
+        attrs = {}
+        #page attrs
+        noked.css('page').first.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
+
+        #revision attrs
+        noked.css('rev').first.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
+
+        #tags
+        tags = []
+        noked.css('tags').children.each do |child|
+          tags << child.children.to_s
+        end
+
+        #diff attributes
+        diff_elem = noked.css('diff')
+        diff_elem.first.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
+        diff = diff_elem.children.to_s
+
+        #pull out the diff_xml (TODO and other stuff)
+        #[diff, attrs, tags]
+
+        #parse it for links
+        links = find_links(diff)
+        #if there are links, investigate!
+        unless links.empty?
+          #simply pulling the source via EM won't block...
+          links.each do |url_and_desc|
+            url = url_and_desc.first
+            url_regex = /^(.*?\/\/)([^\/]*)(.*)$/x
+            #deal with links stargin with 'www', if they get entered into wikilinks like that they count!
+            unless url =~ url_regex
+              url = "http://#{url}"
+            end
+            begin
+              follow_link(fields[:revision_id], url, url_and_desc.last)
+            rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+              puts "Followed link: #{e}"
+            end
+          end
+        end
+      else
+        puts "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+      end
+    end
+    
+    def follow_link revision_id, url, description
+      EM::HttpRequest.new(url).get.callback do |http|
+        #shallow copy all reponse headers to a hash with lowercase symbols as keys
+        #em-http converts dashs to symbols
+        headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
+        http.response.to_s
+      
+        #ignore binary, non content-type text/html files
+        unless(headers[:content_type] =~ /^text\/html/ )
+          fields = {
+            :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
+            :headers => Marshal.dump(headers), 
+            :url => url, 
+            :revision_id => revision_id, 
+            :wikilink_description => description
+          }
+
+          link_table = DB[:links]
+      	  link_table << fields
+    	  else
+          fields = {
+            :source => 'encoded', 
+            :headers => Marshal.dump(headers), 
+            :url => url, 
+            :revision_id => revision_id, 
+            :wikilink_description => description
+          }
+
+          link_table = DB[:links]
+      	  link_table << fields
+  	    end
+      
+      end
+    end
     
     #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
     # 0: title (string), 
@@ -303,8 +328,8 @@ end
 unless DB.table_exists?(:links)
   DB.create_table :links do
     primary_key :id #autoincrementing primary key
-    String :source
-    String :headers
+    String :source, :text=>true
+    String :headers, :text=>true
     String :url
     Integer :revision_id
     String :wikilink_description

@@ -8,6 +8,7 @@ GEM
       eventmachine (>= 0.12.9)
     escape_utils (0.1.9)
     eventmachine (0.12.10)
+    nokogiri (1.4.4)
     rack (1.2.0)
     sequel (3.19.0)
     sinatra (1.1.2)
@@ -21,6 +22,7 @@ PLATFORMS
 DEPENDENCIES
   em-http-request
   eventmachine
+  nokogiri
   rack (= 1.2.0)
   sequel
   sinatra
