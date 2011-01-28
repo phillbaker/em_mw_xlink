@@ -1,4 +1,4 @@
-require 'mediawiki.rb'
+require 'lib/mediawiki.rb'
 
 require 'logger'
 require 'rubygems'
@@ -12,6 +12,7 @@ require 'em-http'
 require 'nokogiri'
 require 'sequel'
 
+LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
 
 module Mini
   class Bot
@@ -38,6 +39,8 @@ module Mini
       @@secret
     end
     def self.start(options)
+      @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
+      @@log.info('starting')
       begin
         EventMachine::run do
           Mini::IRC.connect(options)
@@ -78,7 +81,6 @@ module Mini
     def initialize(options)
       self.config = options
       @queue = []
-      @log = Logger.new('log/bot.log')
     end
         
     def say(msg, targets = [])
@@ -166,7 +168,7 @@ module Mini
           follow_diff(fields, http.response.to_s)
         end
       rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-        @log.error "followed revision: #{e}"
+        @@log.error "followed revision: #{e}"
       end
     end
     
@@ -217,12 +219,12 @@ module Mini
             begin
               follow_link(fields[:revision_id], url, url_and_desc.last)
             rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-              @log.error "Followed link: #{e}"
+              @@log.error "Followed link: #{e}"
             end
           end
         end
       else
-        @log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+        @@log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
       end
     end
     
@@ -288,7 +290,7 @@ module Mini
     
     def unbind
       EM.add_timer(3) do
-        @log.info 'unbind'
+        @@log.info 'unbind'
         reconnect(config[:server], config[:port])
         post_init
       end
@@ -306,7 +308,7 @@ module Mini
   end
 end
 
-DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => Logger.new('log/db.log')
+DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => Logger.new("#{LOG_DIR_PATH}/db.log")
 unless DB.table_exists?(:samples)
   DB.create_table :samples do
     primary_key :id #autoincrementing primary key
