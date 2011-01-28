@@ -142,7 +142,13 @@ module Mini
     
     def handle_line line
       operation = proc do
-      	puts line if line =~ Mediawiki::IRC_REGEXP
+      	if line =~ Mediawiki::IRC_REGEXP
+      	  fields = process_irc(line)
+      	  p fields
+      	  #samples = DB[:samples]
+          #samples << fields
+          #puts dataset.count.to_s
+    	  end
       end
 
       # Callback block to execute once the request is fulfilled
@@ -152,6 +158,25 @@ module Mini
 
       # Let the thread pool (20 Ruby threads) handle request
       EM.defer(operation)#, callback)
+    end
+    
+    #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
+    # 0: title (string), 
+    # 1: flags (desc) (string), 
+    # 2: rev_id (integer),
+    # 3: old_id (integer)
+    # 4: user (string), 
+    # 5: byte_diff (integer), 
+    # 6: comment (description) (string)
+    def process_irc message
+      fields = message.scan(Mediawiki::IRC_REGEXP).first
+      #get rid of the diff/oldid and oldid/rcid groups
+      fields.delete_at(4)
+      fields.delete_at(2)
+      fields[2] = fields[2].to_i
+      fields[3] = fields[3].to_i
+      fields[5] = fields[5].to_i
+      {:title => fields[0], :flags => fields[1], :rev_id => fields[2], :old_id => fields[3], :user => fields[4], :byte_diff => fields[5], :comment => fields[6]}
     end
     
     def unbind
@@ -174,6 +199,21 @@ module Mini
   end
 end
 
+DB = Sequel.sqlite "en_wikipedia.sqlite"
+unless DB.table_exists?(:samples)
+  DB.create_table :samples do
+    primary_key :id #autoincrementing primary key
+    String :title
+    String :flags
+    String :user
+    Integer :old_id
+    Integer :revision_id
+    Integer :byte_diff
+    String :comment
+    #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
+  end
+end
+
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
   :mini_port => 12345,
@@ -186,19 +226,6 @@ Mini::Bot.start(
 )
 
 #DB = Sequel.connect('sqlite://blog.db')
-DB = Sequel.sqlite "en_wikipedia.sqlite"
-unless DB.table_exists?(:samples)
-  DB.create_table :samples do
-    primary_key :id #autoincrementing primary key
-    String :article_name
-    String :flags
-    String :description
-    String :user
-    Integer :old_id
-    Integer :revision_id
-    Integer :byte_diff
-    #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
-  end
-end
+
 # :default => :'datetime(\'now\',\'localtime\')'.sql_function
 # DATE DEFAULT (datetime('now','localtime'))
