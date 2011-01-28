@@ -61,7 +61,7 @@ module Mini
       EventMachine.stop_server(@signature)
       #anything? sleep? or loop?
       EventMachine.stop
-      
+      @@log.info('stopping')
     end
   end
 end
