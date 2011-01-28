@@ -1,4 +1,4 @@
-require 'lib/mediawiki.rb'
+require 'mediawiki.rb'
 
 require 'logger'
 require 'rubygems'
@@ -11,8 +11,6 @@ require 'sinatra/base'
 require 'em-http'
 require 'nokogiri'
 require 'sequel'
-
-LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
 
 module Mini
   class Bot
@@ -59,7 +57,9 @@ module Mini
       proc ? proc.call(args) : (puts "command #{ command } not found. ")
     end
     
-    #TODO self.stop? EventMachine::stop_event_loop. 
+    def self.stop
+      EventMachine::stop_event_loop
+    end
   end
 end
 
@@ -308,7 +308,10 @@ module Mini
   end
 end
 
-DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => Logger.new("#{LOG_DIR_PATH}/db.log")
+log = Logger.new("#{LOG_DIR_PATH}/db.log")
+log.level = Logger::WARN
+DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => log
+DB.sql_log_level = :debug
 unless DB.table_exists?(:samples)
   DB.create_table :samples do
     primary_key :id #autoincrementing primary key
@@ -344,8 +347,5 @@ Mini::Bot.start(
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )
-
-#DB = Sequel.connect('sqlite://blog.db', :logger => Logger.new('log/db.log'))
-
 # :default => :'datetime(\'now\',\'localtime\')'.sql_function
 # DATE DEFAULT (datetime('now','localtime'))
