@@ -76,14 +76,9 @@ module Mini
     end
     
     def initialize(options)
-      begin
-        #self.config = OpenStruct.new(options)
-        self.config = options
-        @queue = []
-      rescue Exception => e
-        puts e
-        puts e.backtrace
-      end
+      self.config = options
+      @queue = []
+      @log = Logger.new('log/bot.log')
     end
         
     def say(msg, targets = [])
@@ -171,7 +166,7 @@ module Mini
           follow_diff(fields, http.response.to_s)
         end
       rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-        puts "followed revision: #{e}"
+        @log.error "followed revision: #{e}"
       end
     end
     
@@ -222,12 +217,12 @@ module Mini
             begin
               follow_link(fields[:revision_id], url, url_and_desc.last)
             rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-              puts "Followed link: #{e}"
+              @log.error "Followed link: #{e}"
             end
           end
         end
       else
-        puts "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+        @log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
       end
     end
     
@@ -293,7 +288,7 @@ module Mini
     
     def unbind
       EM.add_timer(3) do
-        puts 'unbind'
+        @log.info 'unbind'
         reconnect(config[:server], config[:port])
         post_init
       end
@@ -336,16 +331,6 @@ unless DB.table_exists?(:links)
     #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
   end
 end
-
-# @samples = DB[:samples]
-# @samples << {
-#   :comment=>"Robot: Listifying from Category:Candidates for speedy deletion (51 entries)", 
-#   :title=>"User:Cyde/List of candidates for speedy deletion/Subpage", 
-#   :flags=>"MB", 
-#   :revision_id=>410531074, 
-#   :old_id=>410530660, 
-#   :byte_diff=>130, :user=>"Cydebot"}
-# puts @samples.count
 
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
