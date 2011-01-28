@@ -1,14 +1,28 @@
+require 'mediawiki.rb'
+
 require 'rubygems'
+require 'sqlite3'
 require 'bundler/setup'
 
 # require gems
 require 'eventmachine'
+require 'sinatra/base'
+require 'em-http'
+require 'sequel'
 
 
 module Mini
   class Bot
     #cattr_accessor :commands, :secret
     @@commands = {}
+    @@web = Sinatra.new do
+      #post("/:command/:secret") do
+        #command, secret = params.delete("command"), params.delete("secret")
+        #Mini::IRC.connection.execute([command, params].join(" ")) if secret == Mini::Bot.secret
+      get '/' do
+        Mini::Bot.secret
+      end
+    end
     def self.commands= commands
       @@commands = commands
     end
@@ -27,6 +41,7 @@ module Mini
           Mini::IRC.connect(options)
           EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
           Bot.secret = options[:secret]
+          #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
         puts e
@@ -119,12 +134,29 @@ module Mini
       when /^:(\S+) PRIVMSG (.*) :\?(.*)$/ : queue($1, $2, $3)
       when /^:\S* \d* #{ config[:user] } @ #{ '#' + config[:channels].first } :(.*)/ : dequeue($1)
       else #TODO when do we end up here? #this is all received lines?
-        puts line + 'a'
+        #STDOUT.print(line + "\n")
+        #STDOUT.flush()
+        handle_line(line)
       end 
+    end
+    
+    def handle_line line
+      operation = proc do
+      	puts line if line =~ Mediawiki::IRC_REGEXP
+      end
+
+      # Callback block to execute once the request is fulfilled
+      #callback = proc do |res|
+      #	resp.send_response
+      #end
+
+      # Let the thread pool (20 Ruby threads) handle request
+      EM.defer(operation)#, callback)
     end
     
     def unbind
       EM.add_timer(3) do
+        puts 'unbind'
         reconnect(config[:server], config[:port])
         post_init
       end
@@ -145,10 +177,28 @@ end
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
   :mini_port => 12345,
-  #:web_port => 2345,
+  :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'yyasb',#user,
+  :user => 'ayasb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )
+
+#DB = Sequel.connect('sqlite://blog.db')
+DB = Sequel.sqlite "en_wikipedia.sqlite"
+unless DB.table_exists?(:samples)
+  DB.create_table :samples do
+    primary_key :id #autoincrementing primary key
+    String :article_name
+    String :flags
+    String :description
+    String :user
+    Integer :old_id
+    Integer :revision_id
+    Integer :byte_diff
+    #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
+  end
+end
+# :default => :'datetime(\'now\',\'localtime\')'.sql_function
+# DATE DEFAULT (datetime('now','localtime'))
