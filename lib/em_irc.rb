@@ -42,23 +42,26 @@ module Mini
       begin
         EventMachine::run do
           Mini::IRC.connect(options)
-          EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
+          @signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
           Bot.secret = options[:secret]
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
-        puts e
-        puts e.backtrace
+        @@log.error e
+        @@log.error e.backtrace
       end
     end
     
     def self.run(command, args)
       proc = Bot.commands[command]
-      proc ? proc.call(args) : (puts "command #{ command } not found. ")
+      proc ? proc.call(args) : (@@log.error "command #{ command } not found. ")
     end
     
     def self.stop
-      EventMachine::stop_event_loop
+      EventMachine.stop_server(@signature)
+      #anything? sleep? or loop?
+      EventMachine.stop
+      
     end
   end
 end

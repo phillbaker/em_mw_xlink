@@ -51,13 +51,12 @@ if action == 'start'
   end
   
   pid = Process.fork do
-    require 'lib/em_irc.rb'
-    
     trap("QUIT") do
       Mini::Bot.stop
       exit  #TODO fix exit error
     end
-    while true do end
+    require 'lib/em_irc.rb'
+    #while true do end
   end
   pid_file = File.open(PID_FILE_PATH, "w")
   pid_file.write(pid.to_s)
