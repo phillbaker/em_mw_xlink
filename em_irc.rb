@@ -135,19 +135,18 @@ module Mini
       when /^PING (.*)/ : command('PONG', $1)
       when /^:(\S+) PRIVMSG (.*) :\?(.*)$/ : queue($1, $2, $3)
       when /^:\S* \d* #{ config[:user] } @ #{ '#' + config[:channels].first } :(.*)/ : dequeue($1)
-      else #TODO when do we end up here? #this is all received lines?
-        #STDOUT.print(line + "\n")
-        #STDOUT.flush()
+      else
         handle_line(line)
       end 
     end
     
     def handle_line line
       process_line = proc do
+        
       	if line =~ Mediawiki::IRC_REGEXP
       	  fields = process_irc(line)
-      	  samples = DB[:samples]
-      	  samples << fields
+      	  sample_table = DB[:samples]
+      	  sample_table << fields
       	  if should_follow?(fields[:title])
       	    follow_revision(fields)
     	    end
@@ -164,30 +163,83 @@ module Mini
     end
     
     def follow_revision fields
-      #get the diff and associated data
-      data = get_diff_data(fields[:revision_id])
-      
-      #parse it for links
-      #if there are links, investigate!
-      #get_diff_and_launch_detectives = proc do
-      #end
-      #EM.defer()
+      #get the xml from wikipedia
+      url = form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
+      EM::HttpRequest.new(url).get.callback do |http|
+        xml = http.response.to_s
+        #parse the xml
+        noked = Nokogiri.XML(xml)
+        #test to see if we have a badrevid
+        if noked.css('badrevids').first == nil
+          attrs = {}
+          #page attrs
+          noked.css('page').first.attributes.each do |k,v|
+            attrs[v.name] = v.value
+          end
+
+          #revision attrs
+          noked.css('rev').first.attributes.each do |k,v|
+            attrs[v.name] = v.value
+          end
+
+          #tags
+          tags = []
+          noked.css('tags').children.each do |child|
+            tags << child.children.to_s
+          end
+
+          #diff attributes
+          diff_elem = noked.css('diff')
+          diff_elem.first.attributes.each do |k,v|
+            attrs[v.name] = v.value
+          end
+          diff = diff_elem.children.to_s
+          
+          #pull out the diff_xml (TODO and other stuff)
+          #[diff, attrs, tags]
+          
+          #parse it for links
+          links = find_links(diff)
+          #if there are links, investigate!
+          unless links.empty?
+            # investigate = proc do
+            #   follow_links({:diff => diff, :attributes => attrs, :tags => tags, :links => links})
+            # end
+            # EM.defer(investigate)
+            
+            #simply pulling the source via EM won't block...
+            links.each do |url_and_desc|
+              puts 'following link!'
+              EM::HttpRequest.new(url_and_desc.first).get.callback do |http|
+                puts 'header: ' + http.response_header.to_s[0..50]
+                puts 'body: ' + http.response.to_s[0..50]
+                
+                fields = {
+                  :source => http.response, 
+                  :headers => http.response_header, 
+                  :url => url_and_desc.first, 
+                  :revision_id => fields[:revision_id], 
+                  :wikilink_description => url_and_desc.last
+                }
+                
+                link_table = DB[:links]
+            	  link_table << fields
+              end
+            end
+          end
+        else
+          puts "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+        end
+      end
     end
     
-    def get_diff_data revision_id
-      #get the xml from wikipedia
-      url = form_url({:prop => :revisions, :revids => revision_id, :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
-      puts url
-      EM::HttpRequest.new(url).get.callback do |http|
-        puts 'callback'
-        puts http.response.to_s[0..100]
-      end
-      
-      #parse the xml
-      #test to see if we have a badrevid
-      #pull out the diff_xml (TODO and other stuff)
-      
-    end
+    # def follow_links info
+    #   info[:links].each do link_and_desc
+    #     EM::HttpRequest.new(url).get.callback do |http|
+    #       
+    #     end
+    #   end
+    # end
     
     #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
     # 0: title (string), 
