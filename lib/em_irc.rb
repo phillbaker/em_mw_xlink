@@ -1,5 +1,6 @@
+#require 'lib/mediawiki.rb'
+#LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
 require 'mediawiki.rb'
-
 require 'logger'
 require 'rubygems'
 require 'sqlite3'
@@ -37,9 +38,9 @@ module Mini
       @@secret
     end
     def self.start(options)
-      @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
-      @@log.info('starting')
       begin
+        @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
+        @@log.info('starting')
         EventMachine::run do
           Mini::IRC.connect(options)
           @signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
@@ -47,14 +48,18 @@ module Mini
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
-        @@log.error e
-        @@log.error e.backtrace
+        begin
+          @@log.error e
+          @@log.error e.backtrace
+        rescue Exception => e
+          puts e
+        end
       end
     end
     
     def self.run(command, args)
       proc = Bot.commands[command]
-      proc ? proc.call(args) : (@@log.error "command #{ command } not found. ")
+      proc ? proc.call(args) : (@@irc_log.error "command #{ command } not found. ")
     end
     
     def self.stop
@@ -82,8 +87,13 @@ module Mini
     end
     
     def initialize(options)
-      self.config = options
-      @queue = []
+      begin
+        self.config = options
+        @queue = []
+        @@irc_log = Logger.new("#{LOG_DIR_PATH}/irc.log")
+      rescue Exception => e
+        puts e
+      end
     end
         
     def say(msg, targets = [])
@@ -142,17 +152,22 @@ module Mini
     
     def handle_line line
       process_line = proc do
-        sleep(5)
-      	if line =~ Mediawiki::IRC_REGEXP
-      	  fields = process_irc(line)
-      	  sample_table = DB[:samples]
-      	  sample_table << fields
-      	  if should_follow?(fields[:title])
-      	    follow_revision(fields)
-    	    end
-    	  end
+        begin
+        	if line =~ Mediawiki::IRC_REGEXP
+        	  fields = process_irc(line)
+        	  sample_table = DB[:samples]
+        	  sample_table << fields
+        	  if should_follow?(fields[:title])
+        	    sleep(5) #wait for mediawiki propogation...
+        	    #follow_revision(fields)
+        	    @@irc_log.info("would have follow this revision")
+      	    end
+      	  end
+  	    rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+          @@irc_log.error "Followed link, resulting in: #{e}"
+	      end
       end
-
+      #@@irc_log.info "here"
       # Callback block to execute once the request is fulfilled
       #callback = proc do |res|
       #	resp.send_response
@@ -162,108 +177,111 @@ module Mini
       EM.defer(process_line)#, callback)
     end
     
-    def follow_revision fields
+    def follow_revision fields, xml
       #get the xml from wikipedia
       url = form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
       #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
-      begin
-        EM::HttpRequest.new(url).get.callback do |http|
-          follow_diff(fields, http.response.to_s)
-        end
-      rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-        @@log.error "followed revision: #{e}"
-      end
-    end
+      EM::HttpRequest.new(url).get.callback do |http|
+        begin
+          #parse the xml
+          xml = http.response.to_s
+          noked = Nokogiri.XML(xml)
+          #test to see if we have a badrevid
+          if noked.css('badrevids').first == nil
+            attrs = {}
+            #page attrs
+            noked.css('page').first.attributes.each do |k,v|
+              attrs[v.name] = v.value
+            end
+
+            #revision attrs
+            noked.css('rev').first.attributes.each do |k,v|
+              attrs[v.name] = v.value
+            end
+
+            #tags
+            tags = []
+            noked.css('tags').children.each do |child|
+              tags << child.children.to_s
+            end
+
+            #diff attributes
+            diff_elem = noked.css('diff')
+            diff_elem.first.attributes.each do |k,v|
+              attrs[v.name] = v.value
+            end
+            diff = diff_elem.children.to_s
+
+            #pull out the diff_xml (TODO and other stuff)
+            #[diff, attrs, tags]
+
+            #parse it for links
+            links = find_links(diff)
+            #if there are links, investigate!
+            unless links.empty?
+              #simply pulling the source via EM won't block...
+              links.each do |url_and_desc|
+                url = url_and_desc.first
+                url_regex = /^(.*?\/\/)([^\/]*)(.*)$/x
+                #deal with links stargin with 'www', if they get entered into wikilinks like that they count!
+                unless url =~ url_regex
+                  url = "http://#{url}"
+                end
+                EM::HttpRequest.new(url).get.callback do |http|
+                  begin
+                    revision_id = fields[:revision_id]
+                    description = url_and_desc.last
+                    #shallow copy all reponse headers to a hash with lowercase symbols as keys
+                    #em-http converts dashs to symbols
+                    headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
+
+                    #ignore binary, non content-type text/html files
+                    unless(headers[:content_type] =~ /^text\/html/ )
+                      fields = {
+                        :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
+                        :headers => Marshal.dump(headers), 
+                        :url => url, 
+                        :revision_id => revision_id, 
+                        :wikilink_description => description
+                      }
+
+                      link_table = DB[:links]
+                  	  link_table << fields
+                	  else
+                      fields = {
+                        :source => 'encoded', 
+                        :headers => Marshal.dump(headers), 
+                        :url => url, 
+                        :revision_id => revision_id, 
+                        :wikilink_description => description
+                      }
+
+                      link_table = DB[:links]
+                  	  link_table << fields
+              	    end
+                  rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+                    @@irc_log.error "Followed link: #{e}"
+                  end #end rescue
+                end #end em-http
+
+              end # end em-http #end rescue
+            end #end unless (following link)
+          else
+            @@irc_log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+          end #end bad revid check
+        rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+          @@irc_log.error "followed revision: #{e}"
+        end #end rescue
+      
+      end #end em-http
+    end #end follow-revisions
     
     def follow_diff fields, xml
-      #parse the xml
-      noked = Nokogiri.XML(xml)
-      #test to see if we have a badrevid
-      if noked.css('badrevids').first == nil
-        attrs = {}
-        #page attrs
-        noked.css('page').first.attributes.each do |k,v|
-          attrs[v.name] = v.value
-        end
-
-        #revision attrs
-        noked.css('rev').first.attributes.each do |k,v|
-          attrs[v.name] = v.value
-        end
-
-        #tags
-        tags = []
-        noked.css('tags').children.each do |child|
-          tags << child.children.to_s
-        end
-
-        #diff attributes
-        diff_elem = noked.css('diff')
-        diff_elem.first.attributes.each do |k,v|
-          attrs[v.name] = v.value
-        end
-        diff = diff_elem.children.to_s
-
-        #pull out the diff_xml (TODO and other stuff)
-        #[diff, attrs, tags]
-
-        #parse it for links
-        links = find_links(diff)
-        #if there are links, investigate!
-        unless links.empty?
-          #simply pulling the source via EM won't block...
-          links.each do |url_and_desc|
-            url = url_and_desc.first
-            url_regex = /^(.*?\/\/)([^\/]*)(.*)$/x
-            #deal with links stargin with 'www', if they get entered into wikilinks like that they count!
-            unless url =~ url_regex
-              url = "http://#{url}"
-            end
-            begin
-              follow_link(fields[:revision_id], url, url_and_desc.last)
-            rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-              @@log.error "Followed link: #{e}"
-            end
-          end
-        end
-      else
-        @@log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
-      end
+      
     end
     
     def follow_link revision_id, url, description
-      EM::HttpRequest.new(url).get.callback do |http|
-        #shallow copy all reponse headers to a hash with lowercase symbols as keys
-        #em-http converts dashs to symbols
-        headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-        http.response.to_s
       
-        #ignore binary, non content-type text/html files
-        unless(headers[:content_type] =~ /^text\/html/ )
-          fields = {
-            :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
-            :headers => Marshal.dump(headers), 
-            :url => url, 
-            :revision_id => revision_id, 
-            :wikilink_description => description
-          }
-
-          link_table = DB[:links]
-      	  link_table << fields
-    	  else
-          fields = {
-            :source => 'encoded', 
-            :headers => Marshal.dump(headers), 
-            :url => url, 
-            :revision_id => revision_id, 
-            :wikilink_description => description
-          }
-
-          link_table = DB[:links]
-      	  link_table << fields
-  	    end
-      
-      end
     end
     
     #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
@@ -293,7 +311,7 @@ module Mini
     
     def unbind
       EM.add_timer(3) do
-        @@log.info 'unbind'
+        @@irc_log.info 'unbind'
         reconnect(config[:server], config[:port])
         post_init
       end
@@ -314,7 +332,7 @@ end
 log = Logger.new("#{LOG_DIR_PATH}/db.log")
 log.level = Logger::WARN
 DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => log
-DB.sql_log_level = :debug
+#DB.sql_log_level = :debug
 unless DB.table_exists?(:samples)
   DB.create_table :samples do
     primary_key :id #autoincrementing primary key
