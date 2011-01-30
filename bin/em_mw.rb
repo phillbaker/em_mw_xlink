@@ -59,18 +59,18 @@ if action == 'start'
     begin
       require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
     rescue RuntimeError => e 
-      clean_pid = proc do
+      def clean_pid
         if File.exist?(PID_FILE_PATH)
-          #TODO don't think I need to kill the process that we forked, I believe this error does that for us
+          #TODO don't think I need to kill the process that we forked, I believe this error does that for us -- make sure
           File.delete(PID_FILE_PATH)
         end
       end
       if e.to_s == 'no acceptor' #this should be if we have starting problems
-        puts 'That port is already in use. Try another'
-        clean_pid.call()
+        puts 'That port is already in use. Try another. Exiting.'
+        clean_pid()
       elsif e.to_s == 'nickname in use'
-        puts 'That nickname is already in use. Use another.'
-        clean_pid.call()
+        puts 'That nickname is already in use. Use another. Exiting.'
+        clean_pid()
       else
         puts "Unknown erorr #{e}"
       end
