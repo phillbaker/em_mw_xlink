@@ -28,10 +28,10 @@ module Mediawiki
       noked.css('.diff-addedline').each do |td| 
         revisions = []
         if(td.css('.diffchange').empty?) #we're dealing with a full line added
-          revisions << Nokogiri.HTML(CGI.unescapeHTML(td.children.to_s)).css('div').children
+          revisions << td.content #Nokogiri.HTML(CGI.unescapeHTML(td.children.to_s)).css('div').children
         else
           td.css('.diffchange').each do |diff|
-            revisions << CGI.unescapeHTML(diff.children.to_s)
+            revisions << diff.content #CGI.unescapeHTML(diff.children.to_s)
           end
         end
         #http://daringfireball.net/2010/07/improved_regex_for_matching_urls
@@ -76,13 +76,17 @@ module Mediawiki
       noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
       attrs = {}
       #page attrs
-      noked.css('page').first.attributes.each do |k,v|
-        attrs[v.name] = v.value
+      noked.css('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
+        page.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
       end
 
       #revision attrs
-      noked.css('rev').first.attributes.each do |k,v|
-        attrs[v.name] = v.value
+      noked.css('rev').each do |rev|
+        rev.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
       end
 
       #tags
@@ -93,8 +97,10 @@ module Mediawiki
 
       #diff attributes
       diff_elem = noked.css('diff')
-      diff_elem.first.attributes.each do |k,v|
-        attrs[v.name] = v.value
+      diff_elem.each do |diff|
+        diff.attributes.each do |k,v|
+          attrs[v.name] = v.value
+        end
       end
       diff = diff_elem.children.to_s
 

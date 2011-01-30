@@ -218,7 +218,7 @@ module Mini
             #parse it for links
             links = Mediawiki::parse_links(diff)
             #if there are links, investigate!
-            unless true && links.empty?
+            if false && !links.empty?
               #pulling the source via EM shouldn't block...
               links.each do |url_and_desc|
                 url = url_and_desc.first
