@@ -2,7 +2,7 @@ require 'cgi'
 require 'uri'
 
 module Mediawiki
-  
+  class<<self
   API_URL_EN = 'http://en.wikipedia.org/w/api.php'
   IRC_REGEXP = /\00314\[\[\00307(.*)\00314\]\]\0034\s+(.*)\00310\s+\00302.*(diff|oldid)=([0-9]+)&(oldid|rcid)=([0-9]+)\s*\003\s*\0035\*\003\s*\00303(.*)\003\s*\0035\*\003\s*\((.*)\)\s*\00310(.*)\003/
   
@@ -71,5 +71,5 @@ module Mediawiki
     linkarray
   end
   
-  
+  end
 end

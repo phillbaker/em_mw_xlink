@@ -1,9 +1,10 @@
 #require 'lib/mediawiki.rb'
 #LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
+
 require 'mediawiki.rb'
 require 'logger'
-require 'rubygems'
 require 'sqlite3'
+require 'rubygems'
 require 'bundler/setup'
 
 # require gems
@@ -13,6 +14,14 @@ require 'em-http'
 require 'nokogiri'
 require 'sequel'
 
+##########
+# event machine based mediawiki irc scraper with external link following
+# based on https://github.com/purzelrakete/mini/
+#
+#########
+
+#TODO pull this stuff out of the mini module, put it in event machine?
+#TODO extract the irc specific stuff into a gem
 module Mini
   class Bot
     #cattr_accessor :commands, :secret
@@ -48,11 +57,17 @@ module Mini
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
-        begin
-          @@log.error e
-          @@log.error e.backtrace
-        rescue Exception => e
-          puts e
+        if e.is_a?(RuntimeError) && (e.to_s == 'no acceptor' || e.to_s == 'nickname in use')
+          #this should be if we're trying to use a port that's already been taken 
+          raise e  #TODO throw a more specific exception (create our own?) like PortInUse
+        else
+          begin
+            @@log.error 'Running bot'
+            @@log.error e
+            @@log.error e.backtrace
+          rescue Exception => e #in case we can't even make the log
+            puts e
+          end
         end
       end
     end
@@ -74,7 +89,7 @@ end
 module Mini
   class IRC < EventMachine::Connection
     include EventMachine::Protocols::LineText2
-    include Mediawiki
+
     attr_accessor :config, :moderators
     #cattr_accessor :connection
     
@@ -138,11 +153,15 @@ module Mini
       command "NICK", config[:user]
       command("NickServ IDENTIFY", config[:user], config[:password]) if config[:password]
       config[:channels].each { |channel| command("JOIN", "##{ channel }")  } if config[:channels]
+      #TODO if we get the name already used error, raise a runtime exception or something to go all the way back to start.rb
     end
     
     def receive_line(line)
       case line
       when /^PING (.*)/ : command('PONG', $1)
+      when /^:(.*?)\ :Nickname\ is\ already\ in\ use\.$/ :  #:[hostname] 433 * [username] :Nickname is already in use.
+        raise RuntimeError.new('nickname in use') #TODO make our own exception for this
+      #TODO do some further checking on whether 
       when /^:(\S+) PRIVMSG (.*) :\?(.*)$/ : queue($1, $2, $3)
       when /^:\S* \d* #{ config[:user] } @ #{ '#' + config[:channels].first } :(.*)/ : dequeue($1)
       else
@@ -159,8 +178,8 @@ module Mini
         	  sample_table << fields
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
-        	    #follow_revision(fields)
-        	    @@irc_log.info("would have follow this revision")
+        	    follow_revision(fields)
+        	    #@@irc_log.info("would have follow this revision")
       	    end
       	  end
   	    rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
@@ -177,9 +196,9 @@ module Mini
       EM.defer(process_line)#, callback)
     end
     
-    def follow_revision fields, xml
+    def follow_revision fields
       #get the xml from wikipedia
-      url = form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
+      url = Mediawiki::form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
       #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
       EM::HttpRequest.new(url).get.callback do |http|
         begin
@@ -216,7 +235,7 @@ module Mini
             #[diff, attrs, tags]
 
             #parse it for links
-            links = find_links(diff)
+            links = Mediawiki::find_links(diff)
             #if there are links, investigate!
             unless links.empty?
               #simply pulling the source via EM won't block...
@@ -227,44 +246,11 @@ module Mini
                 unless url =~ url_regex
                   url = "http://#{url}"
                 end
-                EM::HttpRequest.new(url).get.callback do |http|
-                  begin
-                    revision_id = fields[:revision_id]
-                    description = url_and_desc.last
-                    #shallow copy all reponse headers to a hash with lowercase symbols as keys
-                    #em-http converts dashs to symbols
-                    headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-
-                    #ignore binary, non content-type text/html files
-                    unless(headers[:content_type] =~ /^text\/html/ )
-                      fields = {
-                        :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
-                        :headers => Marshal.dump(headers), 
-                        :url => url, 
-                        :revision_id => revision_id, 
-                        :wikilink_description => description
-                      }
-
-                      link_table = DB[:links]
-                  	  link_table << fields
-                	  else
-                      fields = {
-                        :source => 'encoded', 
-                        :headers => Marshal.dump(headers), 
-                        :url => url, 
-                        :revision_id => revision_id, 
-                        :wikilink_description => description
-                      }
-
-                      link_table = DB[:links]
-                  	  link_table << fields
-              	    end
-                  rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-                    @@irc_log.error "Followed link: #{e}"
-                  end #end rescue
-                end #end em-http
-
-              end # end em-http #end rescue
+                #revision_id = fields[:revision_id]
+                #description = url_and_desc.last
+                #follow_link(revision_id, url, description)
+                @@irc_log.info("would have followed link: #{url}")
+              end # end links each
             end #end unless (following link)
           else
             @@irc_log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
@@ -281,7 +267,42 @@ module Mini
     end
     
     def follow_link revision_id, url, description
-      
+      EM::HttpRequest.new(url).get.callback do |http|
+        begin
+          #revision_id = fields[:revision_id]
+          #description = url_and_desc.last
+          #shallow copy all reponse headers to a hash with lowercase symbols as keys
+          #em-http converts dashs to symbols
+          headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
+
+          #ignore binary, non content-type text/html files
+          unless(headers[:content_type] =~ /^text\/html/ )
+            fields = {
+              :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
+              :headers => Marshal.dump(headers), 
+              :url => url, 
+              :revision_id => revision_id, 
+              :wikilink_description => description
+            }
+
+            link_table = DB[:links]
+        	  link_table << fields
+      	  else
+            fields = {
+              :source => 'encoded', 
+              :headers => Marshal.dump(headers), 
+              :url => url, 
+              :revision_id => revision_id, 
+              :wikilink_description => description
+            }
+
+            link_table = DB[:links]
+        	  link_table << fields
+    	    end
+        rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
+          @@irc_log.error "Followed link: #{e}"
+        end #end rescue
+      end #end em-http
     end
     
     #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
@@ -312,7 +333,7 @@ module Mini
     def unbind
       EM.add_timer(3) do
         @@irc_log.info 'unbind'
-        reconnect(config[:server], config[:port])
+        reconnect(config[:server], config[:port].to_i)
         post_init
       end
     end
@@ -349,8 +370,8 @@ end
 unless DB.table_exists?(:links)
   DB.create_table :links do
     primary_key :id #autoincrementing primary key
-    String :source, :text=>true
-    String :headers, :text=>true
+    String :source, :text => true
+    String :headers, :text => true
     String :url
     Integer :revision_id
     String :wikilink_description
@@ -360,13 +381,13 @@ end
 
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
-  :mini_port => 12345,
+  :mini_port => 23456,
   :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'ayasb',#user,
+  :user => 'yasb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )
 # :default => :'datetime(\'now\',\'localtime\')'.sql_function
-# DATE DEFAULT (datetime('now','localtime'))
+# DATE DEFAULT (datetime('now','localtime'))s
