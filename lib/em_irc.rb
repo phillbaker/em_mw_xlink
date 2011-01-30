@@ -213,7 +213,7 @@ module Mini
           noked = Nokogiri.XML(xml)
           #@@irc_log.info('nok\'ed the xml')
           #test to see if we have a badrevid
-          if false && noked.css('badrevids').first == nil
+          if noked.css('badrevids').first == nil
             diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
 
             #parse it for links
@@ -230,7 +230,7 @@ module Mini
                 end
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
-                #follow_link(revision_id, url, description)
+                follow_link(revision_id, url, description)
                 @@irc_log.info("would have followed link: #{url}")
               end # end links each
             else
@@ -259,9 +259,10 @@ module Mini
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-          @@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
+          #@@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
           unless(headers[:content_type] =~ /^text\/html/ )
+            @@irc_log.info("stored source: #{url}")
             fields = {
               :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #
               :headers => Marshal.dump(headers), 
@@ -366,11 +367,11 @@ end
 
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
-  :mini_port => 12345,
+  :mini_port => 23456,
   :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'yasb',#user,
+  :user => 'asb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )

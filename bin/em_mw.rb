@@ -51,7 +51,7 @@ if action == 'start'
   end
 
   #TODO we should not fork until we setup on the same thread as where we started, we should fork after that  
-  pid = Process.fork do
+  pid = Process.fork do #TODO put this in a class or something, get it out of this file
     trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
       Mini::Bot.stop
       exit(0)  #TODO fix exit error
@@ -76,12 +76,17 @@ if action == 'start'
       else
         puts "Unknown erorr #{e}"
       end
-      #TODO and clear pid file
     end
-    #while true do end
   end
+  
+  pid_watcher = Process.fork do
+    sleep(10) #wait for the irc bot to get going
+    require 'lib/em_watcher.rb'
+    EmWatcher.start()
+  end
+  
   pid_file = File.open(PID_FILE_PATH, "w")
-  pid_file.write(pid.to_s)
+  pid_file.write("#{pid}\n#{pid_watcher}")
   pid_file.close
   Process.detach(pid)
 else
@@ -91,8 +96,10 @@ else
   else
     pid_file = File.new(PID_FILE_PATH, "r")
     pid = pid_file.readline.to_i
+    pid_watcher = pid_file.readline.to_i
     begin
       Process.kill("QUIT", pid)
+      Process.kill("QUIT", pid_watcher)
     rescue Errno::ESRCH
       puts "Error: cannot stop the bot, PID does not exist. It may have already been killed, or may have exited due to an error"
       # stopping an already stopped process is considered a success (exit status 0)
