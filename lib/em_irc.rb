@@ -22,6 +22,7 @@ require 'sequel'
 
 #TODO pull this stuff out of the mini module, put it in event machine?
 #TODO extract the irc specific stuff into a gem
+#TOOD add commands to kill the sqlite file/generically clear the db and logs (before start: something like: -c)
 module Mini
   class Bot
     #cattr_accessor :commands, :secret
@@ -161,7 +162,7 @@ module Mini
       when /^PING (.*)/ : command('PONG', $1)
       when /^:(.*?)\ :Nickname\ is\ already\ in\ use\.$/ :  #:[hostname] 433 * [username] :Nickname is already in use.
         raise RuntimeError.new('nickname in use') #TODO make our own exception for this
-      #TODO do some further checking on whether 
+      #TODO do some further checking on whether we're successful in connection to channel/etc.: http://www.networksorcery.com/enp/protocol/irc.htm
       when /^:(\S+) PRIVMSG (.*) :\?(.*)$/ : queue($1, $2, $3)
       when /^:\S* \d* #{ config[:user] } @ #{ '#' + config[:channels].first } :(.*)/ : dequeue($1)
       else
