@@ -203,46 +203,23 @@ module Mini
       #get the xml from wikipedia
       url = Mediawiki::form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
       #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
-      EM::HttpRequest.new(url).get.callback do |http|
+      EventMachine::HttpRequest.new(url).get.callback do |http|
+        #@@irc_log.info('hit mediawiki servers')
         done = false
         begin
           #parse the xml
           xml = http.response.to_s
           noked = Nokogiri.XML(xml)
+          #@@irc_log.info('nok\'ed the xml')
           #test to see if we have a badrevid
           if noked.css('badrevids').first == nil
-            attrs = {}
-            #page attrs
-            noked.css('page').first.attributes.each do |k,v|
-              attrs[v.name] = v.value
-            end
-
-            #revision attrs
-            noked.css('rev').first.attributes.each do |k,v|
-              attrs[v.name] = v.value
-            end
-
-            #tags
-            tags = []
-            noked.css('tags').children.each do |child|
-              tags << child.children.to_s
-            end
-
-            #diff attributes
-            diff_elem = noked.css('diff')
-            diff_elem.first.attributes.each do |k,v|
-              attrs[v.name] = v.value
-            end
-            diff = diff_elem.children.to_s
-
-            #pull out the diff_xml (TODO and other stuff)
-            #[diff, attrs, tags]
+            diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
 
             #parse it for links
             links = Mediawiki::parse_links(diff)
             #if there are links, investigate!
-            unless links.empty?
-              #simply pulling the source via EM won't block...
+            unless true && links.empty?
+              #pulling the source via EM shouldn't block...
               links.each do |url_and_desc|
                 url = url_and_desc.first
                 url_regex = /^(.*?\/\/)([^\/]*)(.*)$/x
@@ -255,14 +232,16 @@ module Mini
                 #follow_link(revision_id, url, description)
                 @@irc_log.info("would have followed link: #{url}")
               end # end links each
+            else
+              @@irc_log.info("no links")
             end #end unless (following link)
           else
-            @@irc_log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
+            @@irc_log.error "badrevids: #{noked.css('badrevids').to_s}"
           end #end bad revid check
           done = true
         rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-          @@irc_log.error "followed revision: #{e}"
-          @@irc_log.error e.backtrace.join("\n")
+          @@irc_log.error "problem following revision: #{e}"
+          @@irc_log.error e.backtrace.join("\n") if e.backtrace
         ensure
           @@irc_log.error("broken at following revisions") unless done
         end #end rescue
@@ -272,7 +251,7 @@ module Mini
     
     
     def follow_link revision_id, url, description
-      EM::HttpRequest.new(url).get(:redirects => 10).callback do |http|
+      EventMachine::HttpRequest.new(url).get(:redirects => 10).callback do |http|
         begin
           #revision_id = fields[:revision_id]
           #description = url_and_desc.last

@@ -70,5 +70,36 @@ module Mediawiki
       end
       linkarray
     end
+    
+    #returns diff, attrs, tags
+    def parse_revision xml
+      noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
+      attrs = {}
+      #page attrs
+      noked.css('page').first.attributes.each do |k,v|
+        attrs[v.name] = v.value
+      end
+
+      #revision attrs
+      noked.css('rev').first.attributes.each do |k,v|
+        attrs[v.name] = v.value
+      end
+
+      #tags
+      tags = []
+      noked.css('tags').children.each do |child|
+        tags << child.children.to_s
+      end
+
+      #diff attributes
+      diff_elem = noked.css('diff')
+      diff_elem.first.attributes.each do |k,v|
+        attrs[v.name] = v.value
+      end
+      diff = diff_elem.children.to_s
+
+      #pull out the diff_xml (TODO and other stuff)
+      [diff, attrs, tags]
+    end
   end#end of class<<self
 end

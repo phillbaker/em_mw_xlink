@@ -52,9 +52,9 @@ if action == 'start'
 
   #TODO we should not fork until we setup on the same thread as where we started, we should fork after that  
   pid = Process.fork do
-    trap("QUIT") do
+    trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
       Mini::Bot.stop
-      exit  #TODO fix exit error
+      exit(0)  #TODO fix exit error
     end
     begin
       require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
