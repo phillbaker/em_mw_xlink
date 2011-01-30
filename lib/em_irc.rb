@@ -90,7 +90,7 @@ end
 module Mini
   class IRC < EventMachine::Connection
     include EventMachine::Protocols::LineText2
-
+    #include Mediawiki
     attr_accessor :config, :moderators
     #cattr_accessor :connection
     
@@ -184,7 +184,7 @@ module Mini
       	    end
       	  end
   	    rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-          @@irc_log.error "Followed link, resulting in: #{e}"
+          @@irc_log.error "Followed irc, resulting in: #{e}"
 	      end
       end
       #@@irc_log.info "here"
@@ -236,7 +236,7 @@ module Mini
             #[diff, attrs, tags]
 
             #parse it for links
-            links = Mediawiki::find_links(diff)
+            links = Mediawiki::parse_links(diff)
             #if there are links, investigate!
             unless links.empty?
               #simply pulling the source via EM won't block...
@@ -258,6 +258,7 @@ module Mini
           end #end bad revid check
         rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
           @@irc_log.error "followed revision: #{e}"
+          @@irc_log.error e.backtrace.join("\n")
         end #end rescue
       
       end #end em-http
@@ -386,7 +387,7 @@ Mini::Bot.start(
   :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'yasb',#user,
+  :user => 'asb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )

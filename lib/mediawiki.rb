@@ -21,7 +21,7 @@ module Mediawiki
   
     #determines if there's at least 1 link in the revision
     #returns diff text, 
-    def find_links xml_diff_unescaped
+    def parse_links xml_diff_unescaped
       diff_html = CGI.unescapeHTML(xml_diff_unescaped)
       noked = Nokogiri.HTML(diff_html)
       linkarray = []

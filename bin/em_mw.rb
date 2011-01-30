@@ -59,7 +59,7 @@ if action == 'start'
     begin
       require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
     rescue RuntimeError => e 
-      def clean_pid
+      def clean_pid #TODO also do this if we haven't installed the appropriate gems
         if File.exist?(PID_FILE_PATH)
           #TODO don't think I need to kill the process that we forked, I believe this error does that for us -- make sure
           File.delete(PID_FILE_PATH)
