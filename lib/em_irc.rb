@@ -55,17 +55,19 @@ module Mini
           Mini::IRC.connect(options)
           @signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
           Bot.secret = options[:secret]
+          EventMachine.threadpool_size = 50
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
         if e.is_a?(RuntimeError) && (e.to_s == 'no acceptor' || e.to_s == 'nickname in use')
+          @@log.error(e.to_s)
           #this should be if we're trying to use a port that's already been taken 
           raise e  #TODO throw a more specific exception (create our own?) like PortInUse
         else
           begin
-            @@log.error 'Running bot'
-            @@log.error e
-            @@log.error e.backtrace
+            @@log.error('Running bot')
+            @@log.error(e)
+            @@log.error(e.backtrace)
           rescue Exception => e #in case we can't even make the log
             puts e
           end
@@ -202,6 +204,7 @@ module Mini
       url = Mediawiki::form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
       #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
       EM::HttpRequest.new(url).get.callback do |http|
+        done = false
         begin
           #parse the xml
           xml = http.response.to_s
@@ -247,8 +250,8 @@ module Mini
                 unless url =~ url_regex
                   url = "http://#{url}"
                 end
-                #revision_id = fields[:revision_id]
-                #description = url_and_desc.last
+                revision_id = fields[:revision_id]
+                description = url_and_desc.last
                 #follow_link(revision_id, url, description)
                 @@irc_log.info("would have followed link: #{url}")
               end # end links each
@@ -256,31 +259,31 @@ module Mini
           else
             @@irc_log.error "badrevids: #{noked.css('badrevids').first.attributes.to_s}"
           end #end bad revid check
+          done = true
         rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
           @@irc_log.error "followed revision: #{e}"
           @@irc_log.error e.backtrace.join("\n")
+        ensure
+          @@irc_log.error("broken at following revisions") unless done
         end #end rescue
       
       end #end em-http
     end #end follow-revisions
     
-    def follow_diff fields, xml
-      
-    end
     
     def follow_link revision_id, url, description
-      EM::HttpRequest.new(url).get.callback do |http|
+      EM::HttpRequest.new(url).get(:redirects => 10).callback do |http|
         begin
           #revision_id = fields[:revision_id]
           #description = url_and_desc.last
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-
+          @@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
           unless(headers[:content_type] =~ /^text\/html/ )
             fields = {
-              :source => http.response.to_s[0..10**5].gsub(/\x00/, ''), #
+              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #
               :headers => Marshal.dump(headers), 
               :url => url, 
               :revision_id => revision_id, 
@@ -372,7 +375,7 @@ end
 unless DB.table_exists?(:links)
   DB.create_table :links do
     primary_key :id #autoincrementing primary key
-    String :source, :text => true
+    String :source, :text => true #or blob?
     String :headers, :text => true
     String :url
     Integer :revision_id
@@ -383,11 +386,11 @@ end
 
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
-  :mini_port => 23456,
+  :mini_port => 12345,
   :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'asb',#user,
+  :user => 'yasb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )
