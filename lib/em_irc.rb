@@ -367,11 +367,11 @@ end
 
 Mini::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
-  :mini_port => 23456,
+  :mini_port => 12345,
   :web_port => 2345,
   :server => 'irc.wikimedia.org',#server,
   :port => '6667',#port,
-  :user => 'asb',#user,
+  :user => 'yasb',#user,
   :password => '',#password, 
   :channels => ['en.wikipedia']#[*channels]
 )
