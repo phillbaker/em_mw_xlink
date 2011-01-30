@@ -49,13 +49,33 @@ if action == 'start'
     puts "Error: cannot start a bot. A pid.txt file was found. A bot may be already running."
     exit(1)
   end
-  
+
+  #TODO we should not fork until we setup on the same thread as where we started, we should fork after that  
   pid = Process.fork do
     trap("QUIT") do
       Mini::Bot.stop
       exit  #TODO fix exit error
     end
-    require 'lib/em_irc.rb'
+    begin
+      require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
+    rescue RuntimeError => e 
+      clean_pid = proc do
+        if File.exist?(PID_FILE_PATH)
+          #TODO don't think I need to kill the process that we forked, I believe this error does that for us
+          File.delete(PID_FILE_PATH)
+        end
+      end
+      if e.to_s == 'no acceptor' #this should be if we have starting problems
+        puts 'That port is already in use. Try another'
+        clean_pid.call()
+      elsif e.to_s == 'nickname in use'
+        puts 'That nickname is already in use. Use another.'
+        clean_pid.call()
+      else
+        puts "Unknown erorr #{e}"
+      end
+      #TODO and clear pid file
+    end
     #while true do end
   end
   pid_file = File.open(PID_FILE_PATH, "w")
@@ -79,7 +99,6 @@ else
     File.delete(PID_FILE_PATH)
   end
 end
-
 
 
 
