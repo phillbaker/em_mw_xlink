@@ -81,10 +81,11 @@ module Mini
     end
     
     def self.stop
-      EventMachine.stop_server(@signature)
-      #anything? sleep? or loop?
-      EventMachine.stop
       @@log.info('stopping')
+      server_resp = EventMachine.stop_server(@signature)
+      #anything? sleep? or loop?
+      em_resp = EventMachine.stop
+      @@log.info("server said: #{server_resp} and eventmachine said: #{em_resp}")
     end
   end
 end
@@ -212,13 +213,13 @@ module Mini
           noked = Nokogiri.XML(xml)
           #@@irc_log.info('nok\'ed the xml')
           #test to see if we have a badrevid
-          if noked.css('badrevids').first == nil
+          if false && noked.css('badrevids').first == nil
             diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
 
             #parse it for links
             links = Mediawiki::parse_links(diff)
             #if there are links, investigate!
-            if false && !links.empty?
+            unless links.empty?
               #pulling the source via EM shouldn't block...
               links.each do |url_and_desc|
                 url = url_and_desc.first

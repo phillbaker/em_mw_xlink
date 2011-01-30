@@ -58,6 +58,7 @@ if action == 'start'
     end
     begin
       require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
+      #eventmachine doens't block - it's all callbacks on another thread, so we should get here
     rescue RuntimeError => e 
       #TODO also on most errors we should let it bubble up to here
       def clean_pid #TODO also do this if we haven't installed the appropriate gems
