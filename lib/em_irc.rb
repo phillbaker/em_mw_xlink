@@ -87,7 +87,12 @@ module Mini
     
     def self.stop
       @@log.info('stopping')
-      
+      #log out of the irc
+      conn = Mini::IRC.connection
+      if(conn.respond_to?(:command))
+        @@log.info('Quitting from IRC channel')
+        conn.command('QUIT')#log out of the irc channel
+      end
       Mini::IRC.connection.close_connection()
       #drop the connection so that we can reconnect if necessary
       EventMachine.stop_event_loop
@@ -98,7 +103,8 @@ module Mini
         @@log.info("there are #{count} connections left")
       end
       EventMachine.stop
-      #should I just call: exit(1) ?
+      #should I just call: 
+      exit(1) #should really kill this process
     end
   end
 end
@@ -161,7 +167,9 @@ module Mini
     end
     
     def self.connect(options)
-      self.connection = EventMachine.connect(options[:server], options[:port].to_i, self, options)
+      conn = EventMachine.connect(options[:server], options[:port].to_i, self, options)
+      self.connection = conn
+      @@connection = conn 
     end
     
     # callbacks
@@ -198,6 +206,8 @@ module Mini
         	    follow_revision(fields)
         	    #@@irc_log.info("would have follow this revision")
       	    end
+    	    else
+    	      @@irc_log.info(line)
       	  end
   	    rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
           @@irc_log.error "Followed irc, resulting in: #{e}"
@@ -330,6 +340,8 @@ module Mini
     end
     
     def unbind
+      #@@irc_log.info('Quitting from IRC channel')
+      #command "QUIT" #log out of the irc channel
       #don't think I want this reconnection right here...
       # EM.add_timer(3) do
       #   @@irc_log.info 'unbind'
