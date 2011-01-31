@@ -74,9 +74,11 @@ if action == 'start'
       if e.to_s == 'no acceptor' #this should be if we have starting problems
         puts 'That port is already in use. Try another. Exiting.'
         clean_pid()
+        exit(1)
       elsif e.to_s == 'nickname in use'
         puts 'That nickname is already in use. Use another. Exiting.'
         clean_pid()
+        exit(1)
       else
         puts "Unknown error #{e}"
       end

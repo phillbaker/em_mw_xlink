@@ -32,6 +32,8 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
               Process.kill("KILL", pid) #if we get here, then break out the big guns, kill -9 it
             rescue Errno::ESRCH
               log.info('couldn\'t kill the process')
+              #send an e-mail
+              EmWatcher.send_email("Couldn't restart at #{Time.now.to_s}")
             end
             log.info("kill -9'ed the process #{pid}")
           end
@@ -46,19 +48,8 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
               exit(0)  #TODO fix exit error
             end
             begin
-              #puts $LOAD_PATH
-              #p ENV
-              #fix ENV to go back to before bundler/setup from the previous calling...
-              # ENV.delete('GEM_HOME')
-              # ENV.delete('GEM_PATH')
-              # ENV.delete('BUNDLE_BIN_PATH')
-              # ENV.delete('RUBYOPT')
-              # ENV.delete('BUNDLE_GEMFILE')
-
               require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
               #eventmachine doens't block - it's all callbacks on another thread, so we should get here
-              #restart the watchers
-              #EventMachine.watch_file("#{LOG_DIR_PATH}/../en_wikipedia.sqlite", Watcher) #TODO don't hardwire this
             rescue RuntimeError => e 
               #TODO also on most errors we should let it bubble up to here
               def clean_pid #TODO also do this if we haven't installed the appropriate gems
@@ -85,8 +76,6 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
           pid_file.close
           Process.detach(pid)
           
-          #send an e-mail
-          EmWatcher.send_email("Restarting at #{Time.now.to_s}")
         end
       end
       
@@ -105,7 +94,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
         smtp.send_message(
           "Something's gone wrong with our project! \n\n #{additional_info} \n\n This is an automated message, but check some of the logs. #{Time.now.to_s}", 
           'senior_design@retrodict.com', 
-          ['me@retrodict.com']#, 'brittney.exline@gmail.com', 'aagrawal@wharton.upenn.edu']
+          ['me@retrodict.com', 'brittney.exline@gmail.com', 'aagrawal@wharton.upenn.edu']
         )
       end
     rescue Errno::ECONNREFUSED

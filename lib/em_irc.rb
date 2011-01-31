@@ -83,13 +83,19 @@ module Mini
     
     def self.stop
       @@log.info('stopping')
-      Mini::IRC.disconnect
+      
+      Mini::IRC.connection.close_connection()
       #drop the connection so that we can reconnect if necessary
-      EventMachine::stop_event_loop
-      server_resp = EventMachine.stop_server(@signature)
+      EventMachine.stop_event_loop
+      EventMachine.stop_server(@signature)
       #anything? sleep? or loop?
-      #em_resp = EventMachine.stop
-      @@log.info("server said: #{server_resp} and eventmachine said: #{em_resp}")
+      #em_resp = 
+      EventMachine.stop
+      
+      EM.next_tick do
+        count = EM.connection_count
+        @@log.info("there are #{count} connections left")
+      end
     end
   end
 end
@@ -155,10 +161,10 @@ module Mini
       self.connection = EventMachine.connect(options[:server], options[:port].to_i, self, options)
     end
     
-    def self.disconnect
+    #def self.disconnect
       #close_connection()
-      EventMachine::close_connection @signature
-    end
+      #TODO don't think the follow works: EventMachine::close_connection @signature
+    #end
     
     # callbacks
     def post_init
