@@ -83,9 +83,12 @@ module Mini
     
     def self.stop
       @@log.info('stopping')
+      Mini::IRC.disconnect
+      #drop the connection so that we can reconnect if necessary
+      EventMachine::stop_event_loop
       server_resp = EventMachine.stop_server(@signature)
       #anything? sleep? or loop?
-      em_resp = EventMachine.stop
+      #em_resp = EventMachine.stop
       @@log.info("server said: #{server_resp} and eventmachine said: #{em_resp}")
     end
   end
@@ -149,7 +152,12 @@ module Mini
     end
     
     def self.connect(options)
-      self.connection = EM.connect(options[:server], options[:port].to_i, self, options)
+      self.connection = EventMachine.connect(options[:server], options[:port].to_i, self, options)
+    end
+    
+    def self.disconnect
+      #close_connection()
+      EventMachine::close_connection @signature
     end
     
     # callbacks
@@ -318,11 +326,12 @@ module Mini
     end
     
     def unbind
-      EM.add_timer(3) do
-        @@irc_log.info 'unbind'
-        reconnect(config[:server], config[:port].to_i)
-        post_init
-      end
+      #don't think I want this reconnection right here...
+      # EM.add_timer(3) do
+      #   @@irc_log.info 'unbind'
+      #   reconnect(config[:server], config[:port].to_i)
+      #   post_init
+      # end
     end
   end
 end

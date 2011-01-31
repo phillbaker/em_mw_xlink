@@ -15,7 +15,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
     EM.kqueue = true if EM.kqueue?
     EventMachine.run do
       EventMachine.watch_file("#{LOG_DIR_PATH}/../en_wikipedia.sqlite", Watcher) #TODO don't hardwire this
-      EventMachine.add_periodic_timer(30) do #test#10) do #check every 10s
+      EventMachine.add_timer(20) do#test add_periodic_timer(10) do #check every 10s
         interval = Time.now.to_i - Watcher.time
         log.info("db file modified after: #{interval}")
         if(true)#test doing it anyways; interval > 30)
@@ -53,6 +53,8 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
 
               require 'lib/em_irc.rb' #TODO just requiring the file starts stuff, this should be abstracted
               #eventmachine doens't block - it's all callbacks on another thread, so we should get here
+              #restart the watchers
+              #EventMachine.watch_file("#{LOG_DIR_PATH}/../en_wikipedia.sqlite", Watcher) #TODO don't hardwire this
             rescue RuntimeError => e 
               #TODO also on most errors we should let it bubble up to here
               def clean_pid #TODO also do this if we haven't installed the appropriate gems
@@ -62,13 +64,13 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
                 end
               end
               if e.to_s == 'no acceptor' #this should be if we have starting problems
-                puts 'That port is already in use. Try another. Exiting.'
+                log.info 'That port is already in use. Try another. Exiting.'
                 clean_pid()
               elsif e.to_s == 'nickname in use'
-                puts 'That nickname is already in use. Use another. Exiting.'
+                log.info 'That nickname is already in use. Use another. Exiting.'
                 clean_pid()
               else
-                puts "Unknown erorr #{e}"
+                log.info "Unknown erorr #{e}"
               end
             end
           end
@@ -126,6 +128,18 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
       #puts "#{path} modified"
       Watcher.log().info('db file modified')
       Watcher.time = Time.now.to_i
+    end
+
+    def file_moved
+      Watcher.log().info("#{path} moved")
+    end
+
+    def file_deleted
+      Watcher.log().info("#{path} deleted")
+    end
+
+    def unbind
+      Watcher.log().info("#{path} monitoring ceased")
     end
     
   end

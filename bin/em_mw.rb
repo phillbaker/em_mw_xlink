@@ -14,6 +14,10 @@
 # 
 # stop:
 #    stop the bot
+# 
+# watch: 
+#    start the watcher (on a different process)
+#
 
 require File.dirname(__FILE__) + '/../conf/include'
 require 'getoptlong'
@@ -39,7 +43,7 @@ if ARGV.length != 1
 end
 
 action = ARGV.shift
-unless ['start', 'stop'].include?(action)
+unless ['start', 'stop', 'watch'].include?(action) #we'll stop watching on stop too
   puts "Unknown action (try --help)"
   exit(0)
 end
@@ -74,33 +78,53 @@ if action == 'start'
         puts 'That nickname is already in use. Use another. Exiting.'
         clean_pid()
       else
-        puts "Unknown erorr #{e}"
+        puts "Unknown error #{e}"
       end
     end
   end
   
-  pid_watcher = Process.fork do
-    sleep(10) #wait for the irc bot to get going
-    require 'lib/em_watcher.rb'
-    EmWatcher.start()
-  end
-  
   pid_file = File.open(PID_FILE_PATH, "w")
-  pid_file.write("#{pid}\n#{pid_watcher}")
+  pid_file.write("#{pid}")
   pid_file.close
   Process.detach(pid)
+elsif action == 'watch'
+  unless File.exist?(PID_FILE_PATH)
+    puts "Error: cannot watch the bot. No pid file exists. A bot may not have been started."
+    exit(1)
+  else
+    pid_watcher = Process.fork do
+      trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
+        EmWatcher.stop()
+        exit(0)
+      end
+      sleep(10) #wait for the irc bot to get going
+      require 'lib/em_watcher.rb'
+      EmWatcher.start()
+    end
+
+    pid_file = File.open(PID_FILE_PATH, 'a+')
+    pid_file.write("\n#{pid_watcher}")
+    pid_file.close
+    Process.detach(pid_watcher)
+  end
+
 else
   unless File.exist?(PID_FILE_PATH)
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
     pid_file = File.new(PID_FILE_PATH, "r")
-    pid = pid_file.readline.to_i
-    pid_watcher = pid_file.readline.to_i
+    lines = pid_file.collect{|line| line }
+    pid = lines.first.to_i
+    pid_watcher = lines.size > 1 ? lines.last.to_i : nil
+    #puts "#{pid} #{pid_watcher}" if pid_watcher
+    #first = true
     begin
-      Process.kill("QUIT", pid)
-      Process.kill("QUIT", pid_watcher)
+      Process.kill("QUIT", pid)# if first
+      #first = false
+      Process.kill("QUIT", pid_watcher) if pid_watcher
     rescue Errno::ESRCH
+      #TODO retry if first
       puts "Error: cannot stop the bot, PID does not exist. It may have already been killed, or may have exited due to an error"
       # stopping an already stopped process is considered a success (exit status 0)
     end
