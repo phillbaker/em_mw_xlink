@@ -6,3 +6,6 @@ gem 'sinatra'
 gem 'em-http-request'
 gem 'sequel'
 gem 'nokogiri'
+
+source 'http://gems.github.com'
+gem 'luislavena-sqlite3-ruby', '1.2.5'

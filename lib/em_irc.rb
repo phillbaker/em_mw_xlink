@@ -2,17 +2,18 @@
 #LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
 
 require 'mediawiki.rb'
+
 require 'logger'
-require 'sqlite3'
 require 'rubygems'
 require 'bundler/setup'
 
-# require gems
+# require bundled gems
 require 'eventmachine'
 require 'sinatra/base'
 require 'em-http'
 require 'nokogiri'
 require 'sequel'
+require 'sqlite3'
 
 ##########
 # event machine based mediawiki irc scraper with external link following
@@ -231,7 +232,7 @@ module Mini
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
                 follow_link(revision_id, url, description)
-                @@irc_log.info("would have followed link: #{url}")
+                #@@irc_log.info("would have followed link: #{url}")
               end # end links each
             else
               @@irc_log.info("no links")
@@ -259,12 +260,12 @@ module Mini
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-          #@@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
+          @@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
           unless(headers[:content_type] =~ /^text\/html/ )
             @@irc_log.info("stored source: #{url}")
             fields = {
-              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #
+              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #only store 1000 characters for now
               :headers => Marshal.dump(headers), 
               :url => url, 
               :revision_id => revision_id, 

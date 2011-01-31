@@ -1,13 +1,15 @@
 GEM
   remote: http://rubygems.org/
+  remote: http://gems.github.com/
   specs:
-    addressable (2.2.3)
+    addressable (2.2.4)
     em-http-request (0.3.0)
       addressable (>= 2.0.0)
       escape_utils
       eventmachine (>= 0.12.9)
     escape_utils (0.1.9)
     eventmachine (0.12.10)
+    luislavena-sqlite3-ruby (1.2.5)
     nokogiri (1.4.4)
     rack (1.2.0)
     sequel (3.19.0)
@@ -22,6 +24,7 @@ PLATFORMS
 DEPENDENCIES
   em-http-request
   eventmachine
+  luislavena-sqlite3-ruby (= 1.2.5)
   nokogiri
   rack (= 1.2.0)
   sequel
