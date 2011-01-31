@@ -18,8 +18,8 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
       EventMachine.add_periodic_timer(10) do #check every 10s
         interval = Time.now.to_i - Watcher.time
         log.info("db file modified after: #{interval}")
-        if(interval > 60)
-          log.info('db file not modified in over 60s')
+        if(interval > 40)
+          log.info('db file not modified in over 50s')
           #restart the process
           #kill the old process
           pid_file = File.new('tmp/pid.txt', 'r')#TODO use the same constants
@@ -28,8 +28,12 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
             Process.kill("QUIT", pid)
             log.info("killed the process #{pid}")
           rescue Errno::ESRCH
-            #TODO, then what do do?
-            log.info('couldn\'t kill the process')
+            begin
+              Process.kill("KILL", pid) #if we get here, then break out the big guns, kill -9 it
+            rescue Errno::ESRCH
+              log.info('couldn\'t kill the process')
+            end
+            log.info("kill -9'ed the process #{pid}")
           end
           pid_file.close
           

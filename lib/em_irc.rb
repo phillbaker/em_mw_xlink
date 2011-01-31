@@ -243,7 +243,7 @@ module Mini
                 #@@irc_log.info("would have followed link: #{url}")
               end # end links each
             else
-              #@@irc_log.info("no links")
+              @@irc_log.info("no links")
             end #end unless (following link)
           else
             @@irc_log.error "badrevids: #{noked.css('badrevids').to_s}"
