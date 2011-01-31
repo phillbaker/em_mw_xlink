@@ -53,10 +53,14 @@ module Mini
         @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
         @@log.info('starting')
         EventMachine::run do
-          Mini::IRC.connect(options)
+          EventMachine.threadpool_size = 50
+          #begin
+            Mini::IRC.connect(options)
+          #rescue EventMachine::ConnectionError
+            
+          #end
           @signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
           Bot.secret = options[:secret]
-          EventMachine.threadpool_size = 50
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
         end
       rescue Exception => e
@@ -88,14 +92,13 @@ module Mini
       #drop the connection so that we can reconnect if necessary
       EventMachine.stop_event_loop
       EventMachine.stop_server(@signature)
-      #anything? sleep? or loop?
-      #em_resp = 
-      EventMachine.stop
-      
+      sleep(1)
       EM.next_tick do
         count = EM.connection_count
         @@log.info("there are #{count} connections left")
       end
+      EventMachine.stop
+      #should I just call: exit(1) ?
     end
   end
 end
@@ -160,11 +163,6 @@ module Mini
     def self.connect(options)
       self.connection = EventMachine.connect(options[:server], options[:port].to_i, self, options)
     end
-    
-    #def self.disconnect
-      #close_connection()
-      #TODO don't think the follow works: EventMachine::close_connection @signature
-    #end
     
     # callbacks
     def post_init

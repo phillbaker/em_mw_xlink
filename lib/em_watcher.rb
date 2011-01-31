@@ -34,6 +34,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
               log.info('couldn\'t kill the process')
               #send an e-mail
               EmWatcher.send_email("Couldn't restart at #{Time.now.to_s}")
+              exit(1) #don't keep 
             end
             log.info("kill -9'ed the process #{pid}")
           end
