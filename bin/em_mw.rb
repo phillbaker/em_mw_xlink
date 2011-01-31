@@ -118,13 +118,10 @@ else
     pid = lines.first.to_i
     pid_watcher = lines.size > 1 ? lines.last.to_i : nil
     #puts "#{pid} #{pid_watcher}" if pid_watcher
-    #first = true
     begin
-      Process.kill("QUIT", pid)# if first
-      #first = false
       Process.kill("QUIT", pid_watcher) if pid_watcher
+      Process.kill("QUIT", pid)
     rescue Errno::ESRCH
-      #TODO retry if first
       puts "Error: cannot stop the bot, PID does not exist. It may have already been killed, or may have exited due to an error"
       # stopping an already stopped process is considered a success (exit status 0)
     end

@@ -15,10 +15,10 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
     EM.kqueue = true if EM.kqueue?
     EventMachine.run do
       EventMachine.watch_file("#{LOG_DIR_PATH}/../en_wikipedia.sqlite", Watcher) #TODO don't hardwire this
-      EventMachine.add_timer(20) do#test add_periodic_timer(10) do #check every 10s
+      EventMachine.add_periodic_timer(10) do #check every 10s
         interval = Time.now.to_i - Watcher.time
         log.info("db file modified after: #{interval}")
-        if(true)#test doing it anyways; interval > 30)
+        if(interval > 60)
           log.info('db file not modified in over 60s')
           #restart the process
           #kill the old process
@@ -34,7 +34,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
           pid_file.close
           
           sleep(2) #give it some time to exit
-          
+          Watcher.time = Time.now.to_i
           #start a new one
           pid = Process.fork do #TODO put this in a class or something, get it out of this file
             trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
@@ -83,8 +83,6 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
           
           #send an e-mail
           EmWatcher.send_email("Restarting at #{Time.now.to_s}")
-
-
         end
       end
       
@@ -126,7 +124,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
     end
     def file_modified
       #puts "#{path} modified"
-      Watcher.log().info('db file modified')
+      #Watcher.log().info('db file modified')
       Watcher.time = Time.now.to_i
     end
 

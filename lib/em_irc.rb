@@ -243,7 +243,7 @@ module Mini
                 #@@irc_log.info("would have followed link: #{url}")
               end # end links each
             else
-              @@irc_log.info("no links")
+              #@@irc_log.info("no links")
             end #end unless (following link)
           else
             @@irc_log.error "badrevids: #{noked.css('badrevids').to_s}"
@@ -270,8 +270,8 @@ module Mini
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
           @@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
-          unless(headers[:content_type] =~ /^text\/html/ )
-            @@irc_log.info("stored source: #{url}")
+          if(headers[:content_type] =~ /^text\/html/ )
+            #@@irc_log.info("stored source: #{url}")
             fields = {
               :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #only store 1000 characters for now
               :headers => Marshal.dump(headers), 
