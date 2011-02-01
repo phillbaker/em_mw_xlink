@@ -18,8 +18,8 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
       EventMachine.add_periodic_timer(10) do #check every 10s
         interval = Time.now.to_i - Watcher.time
         log.info("db file modified after: #{interval}")
-        if(interval > 40)
-          log.info('db file not modified in over 50s')
+        if(interval > 20)
+          log.info('db file not modified in over 30s')
           #restart the process
           #kill the old process
           pid_file = File.new('tmp/pid.txt', 'r')#TODO use the same constants
@@ -40,7 +40,7 @@ class EmWatcher #TODO in the future, this should just kick stuff off, it's the s
           end
           pid_file.close
           
-          sleep(2) #give it some time to exit
+          sleep(10) #give it some time to exit
           Watcher.time = Time.now.to_i
           #start a new one
           pid = Process.fork do #TODO put this in a class or something, get it out of this file

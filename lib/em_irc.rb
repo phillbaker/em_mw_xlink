@@ -93,7 +93,7 @@ module Mini
         @@log.info('Quitting from IRC channel')
         conn.command('QUIT')#log out of the irc channel
       end
-      Mini::IRC.connection.close_connection()
+      conn.close_connection()
       #drop the connection so that we can reconnect if necessary
       EventMachine.stop_event_loop
       EventMachine.stop_server(@signature)
@@ -104,7 +104,7 @@ module Mini
       end
       EventMachine.stop
       #should I just call: 
-      exit(1) #should really kill this process
+      #Doesn't really matter, it's called in the launch script exit(1) #should really kill this process
     end
   end
 end
@@ -203,7 +203,8 @@ module Mini
         	  sample_table << fields
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
-        	    follow_revision(fields)
+        	    #TODO queue everything here, fields is a simple ruby hash: push to other, out of process EM clients to deal with; let them die/etc
+        	    #follow_revision(fields)
         	    #@@irc_log.info("would have follow this revision")
       	    end
     	    else
