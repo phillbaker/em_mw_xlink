@@ -23,15 +23,15 @@ module Mediawiki
     #returns diff text, 
     def parse_links xml_diff_unescaped
       diff_html = CGI.unescapeHTML(xml_diff_unescaped)
-      noked = Nokogiri.HTML(diff_html)
+      doc = Hpricot(diff_html) #noked = Nokogiri.HTML(diff_html)
       linkarray = []
-      noked.css('.diff-addedline').each do |td| 
+      doc.search('.diff-addedline').each do |td| #noked.css('.diff-addedline').each do |td| 
         revisions = []
-        if(td.css('.diffchange').empty?) #we're dealing with a full line added
-          revisions << td.content #Nokogiri.HTML(CGI.unescapeHTML(td.children.to_s)).css('div').children
+        if(td.search('.diffchange').empty?)#if(td.css('.diffchange').empty?) #we're dealing with a full line added
+          revisions << td.inner_html #td.content 
         else
-          td.css('.diffchange').each do |diff|
-            revisions << diff.content #CGI.unescapeHTML(diff.children.to_s)
+          td.search('.diffchange').each do |diff| #td.css('.diffchange').each do |diff|
+            revisions << diff.inner_html #diff.content
           end
         end
         #http://daringfireball.net/2010/07/improved_regex_for_matching_urls
@@ -73,17 +73,17 @@ module Mediawiki
     
     #returns diff, attrs, tags
     def parse_revision xml
-      noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
+      doc = Hpricot(xml) #noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
       attrs = {}
       #page attrs
-      noked.css('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
+      doc.search('page').each do |page| #noked.css('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
         page.attributes.each do |k,v|
           attrs[v.name] = v.value
         end
       end
 
       #revision attrs
-      noked.css('rev').each do |rev|
+      doc.search('rev').each do |rev| #noked.css('rev').each do |rev|
         rev.attributes.each do |k,v|
           attrs[v.name] = v.value
         end
@@ -91,18 +91,18 @@ module Mediawiki
 
       #tags
       tags = []
-      noked.css('tags').children.each do |child|
+      doc.search('tags').each do |tags| #noked.css('tags').children.each do |child|
         tags << child.children.to_s
       end
 
       #diff attributes
-      diff_elem = noked.css('diff')
+      diff_elem.search('diff') #diff_elem = noked.css('diff')
       diff_elem.each do |diff|
         diff.attributes.each do |k,v|
           attrs[v.name] = v.value
         end
       end
-      diff = diff_elem.children.to_s
+      diff = diff_elem.inner_html #diff_elem.children.to_s
 
       #pull out the diff_xml (TODO and other stuff)
       [diff, attrs, tags]

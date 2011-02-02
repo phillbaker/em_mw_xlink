@@ -11,7 +11,7 @@ require 'bundler/setup'
 require 'eventmachine'
 require 'sinatra/base'
 require 'em-http'
-require 'nokogiri'
+require 'hpricot'
 require 'sequel'
 require 'sqlite3'
 
@@ -200,7 +200,7 @@ module Mini
         	if line =~ Mediawiki::IRC_REGEXP
         	  fields = process_irc(line)
         	  sample_table = DB[:samples]
-        	  sample_table << fields
+        	  sample_table << fields #something else to do is to create a new column that tracks whether we've successfully tracked this guy
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
         	    #TODO queue everything here, fields is a simple ruby hash: push to other, out of process EM clients to deal with; let them die/etc
@@ -234,10 +234,11 @@ module Mini
         begin
           #parse the xml
           xml = http.response.to_s
-          noked = Nokogiri.XML(xml)
+          doc = Hpricot(xml)#noked = Nokogiri.XML(xml)
           #@@irc_log.info('nok\'ed the xml')
           #test to see if we have a badrevid
-          if noked.css('badrevids').first == nil
+          bad_revs = doc.search('badrevids')
+          if bad_revs.first == nil #noked.css('badrevids').first == nil
             diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
 
             #parse it for links
@@ -261,7 +262,7 @@ module Mini
               @@irc_log.info("no links")
             end #end unless (following link)
           else
-            @@irc_log.error "badrevids: #{noked.css('badrevids').to_s}"
+            @@irc_log.error "badrevids: #{bad_revs.inner_html.to_s}" #noked.css('badrevids').to_s
           end #end bad revid check
           done = true
         rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e

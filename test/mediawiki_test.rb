@@ -3,7 +3,7 @@ require File.dirname(__FILE__) + '/../conf/include'
 require 'mediawiki.rb'
 require 'rubygems'
 require 'bundler/setup'
-require 'nokogiri'
+require 'hpricot'
 
 class MediawikiTest < Test::Unit::TestCase
   
