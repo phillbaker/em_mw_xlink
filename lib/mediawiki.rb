@@ -1,5 +1,6 @@
 require 'cgi'
 require 'uri'
+require 'timeout'
 
 module Mediawiki
   
@@ -45,8 +46,13 @@ module Mediawiki
         links = {}
         revisions.each do |revision|
           #wikilinks
-          #TODO the following also seems to be able to fall into infinite loops
-          regex_results = revision.to_s.scan(wikilink_regex) #TODO what if there are multiple matches?
+          
+          regex_results = []
+          status = Timeout::timeout(5) do
+            #the following falls into infinite loops/take exponential time 
+            #on certain pieces of text with the pre/post lookups, so limit it
+            regex_results = revision.to_s.scan(wikilink_regex)
+          end
           unless regex_results.empty?
             regex_results.each do |regex_result|
               link, desc = regex_result.compact[1..2] 
@@ -56,7 +62,10 @@ module Mediawiki
         
           #interpreted links, but don't just grab the same ones as above
           #TODO come up with the right regex, we'll just eliminate the same ones for now...not efficient like n^2; okay, most edits are small
-          regex_results = revision.to_s.scan(url_regex)
+          regex_results = []
+          status = Timeout::timeout(5) do
+            regex_results = revision.to_s.scan(url_regex)
+          end
           unless regex_results.empty?
             regex_results.each do |regex_result|
               link = regex_result.first
