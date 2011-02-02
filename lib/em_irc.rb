@@ -10,8 +10,6 @@ require 'bundler/setup'
 # require bundled gems
 require 'eventmachine'
 require 'sinatra/base'
-require 'em-http'
-require 'hpricot'
 require 'sequel'
 require 'sqlite3'
 
@@ -24,7 +22,7 @@ require 'sqlite3'
 #TODO pull this stuff out of the mini module, put it in event machine?
 #TODO extract the irc specific stuff into a gem
 #TOOD add commands to kill the sqlite file/generically clear the db and logs (before start: something like: -c)
-module Mini
+module EmMwXlink
   class Bot
     #cattr_accessor :commands, :secret
     @@commands = {}
@@ -52,16 +50,26 @@ module Mini
       begin
         @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
         @@log.info('starting')
-        EventMachine::run do
+        EventMachine.run do
           EventMachine.threadpool_size = 50
-          #begin
-            Mini::IRC.connect(options)
-          #rescue EventMachine::ConnectionError
-            
-          #end
-          @signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, Mini::Listener)
-          Bot.secret = options[:secret]
+          
+          #connect to our unstable revision processors
+          conn = EventMachine.connect('127.0.0.1', 7890, EmMwXlink::RevisionSender, {:port => 7890})
+          options[:xlink_1] = conn
+          @@log.info(conn.to_s)
+          conn = EventMachine.connect('127.0.0.1', 8901, EmMwXlink::RevisionSender, {:port => 8901})
+          options[:xlink_2] = conn
+          @@log.info(conn.to_s)
+          
+          #connect to the IRC channel
+          conn = EventMachine.connect(options[:server], options[:port].to_i, EmMwXlink::IRC, options)
+          EmMwXlink::IRC.connection = conn #store it there...
+          
+          #start our server to say things back
+          #@signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, EmMwXlink::IrcListener)
+          #Bot.secret = options[:secret]
           #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
+          
         end
       rescue Exception => e
         if e.is_a?(RuntimeError) && (e.to_s == 'no acceptor' || e.to_s == 'nickname in use')
@@ -82,39 +90,36 @@ module Mini
     
     def self.run(command, args)
       proc = Bot.commands[command]
-      proc ? proc.call(args) : (@@irc_log.error "command #{ command } not found. ")
+      proc ? proc.call(args) : (@@log.error "command #{ command } not found. ")
     end
     
     def self.stop
       @@log.info('stopping')
+      
       #log out of the irc
-      conn = Mini::IRC.connection
-      if(conn.respond_to?(:command))
-        @@log.info('Quitting from IRC channel')
-        conn.command('QUIT')#log out of the irc channel
-      end
-      conn.close_connection()
+      conn = EmMwXlink::IRC.connection
+      @@log.info('Quitting from IRC channel')
+      conn.command('QUIT')#log out of the irc channel
       #drop the connection so that we can reconnect if necessary
+      conn.close_connection()
+
+      #stop eventmachine
       EventMachine.stop_event_loop
-      EventMachine.stop_server(@signature)
-      sleep(1)
+      #EventMachine.stop_server(@signature)
+      
       EM.next_tick do
-        count = EM.connection_count
-        @@log.info("there are #{count} connections left")
+        @@log.info("there are #{EM.connection_count.to_s} connections left")
       end
+      sleep(1)
       EventMachine.stop
       #should I just call: 
       #Doesn't really matter, it's called in the launch script exit(1) #should really kill this process
     end
   end
-end
 
-module Mini
   class IRC < EventMachine::Connection
     include EventMachine::Protocols::LineText2
-    #include Mediawiki
     attr_accessor :config, :moderators
-    #cattr_accessor :connection
     
     def self.connection= connection
       @@connection = connection
@@ -166,12 +171,6 @@ module Mini
       say(%x{#{ command }})
     end
     
-    def self.connect(options)
-      conn = EventMachine.connect(options[:server], options[:port].to_i, self, options)
-      self.connection = conn
-      @@connection = conn 
-    end
-    
     # callbacks
     def post_init
       command "USER", [config[:user]]*4
@@ -203,9 +202,14 @@ module Mini
         	  sample_table << fields #something else to do is to create a new column that tracks whether we've successfully tracked this guy
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
-        	    #TODO queue everything here, fields is a simple ruby hash: push to other, out of process EM clients to deal with; let them die/etc
-        	    follow_revision(fields)
-        	    #@@irc_log.info("would have follow this revision")
+        	    #push to other, out of process EM clients to deal with; let them die/etc
+        	    unless(self.config[:xlink_1].error?) 
+        	      @@irc_log.info('sending to numero uno')
+        	      self.config[:xlink_1].send_revision(fields)
+      	      else
+      	        @@irc_log.info('failing over to numero dos')
+      	        self.config[:xlink_2].send_revision(fields)
+    	        end
       	    end
     	    else
     	      @@irc_log.info(line)
@@ -214,7 +218,6 @@ module Mini
           @@irc_log.error "Followed irc, resulting in: #{e}"
 	      end
       end
-      #@@irc_log.info "here"
       # Callback block to execute once the request is fulfilled
       #callback = proc do |res|
       #	resp.send_response
@@ -223,104 +226,7 @@ module Mini
       # Let the thread pool (20 Ruby threads) handle request
       EM.defer(process_line)#, callback)
     end
-    
-    def follow_revision fields
-      #get the xml from wikipedia
-      url = Mediawiki::form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
-      #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
-      EventMachine::HttpRequest.new(url).get(:timeout => 5).callback do |http|
-        #@@irc_log.info('hit mediawiki servers')
-        done = false
-        begin
-          xml = http.response.to_s
-          #parse the xml
-          raise Exception.new('trying to parse nothing') unless xml.size > 0
-          doc = Hpricot(xml)#noked = Nokogiri.XML(xml)
-          #@@irc_log.info('nok\'ed the xml')
-          #test to see if we have a badrevid
-          bad_revs = doc.search('badrevids')
-          if bad_revs.first == nil #noked.css('badrevids').first == nil
-            diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
 
-            #parse it for links
-            links = Mediawiki::parse_links(diff)
-            #if there are links, investigate!
-            unless links.empty?
-              #pulling the source via EM shouldn't block...
-              links.each do |url_and_desc|
-                url = url_and_desc.first
-                url_regex = /^(.*?\/\/)([^\/]*)(.*)$/x
-                #deal with links stargin with 'www', if they get entered into wikilinks like that they count!
-                unless url =~ url_regex
-                  url = "http://#{url}"
-                end
-                revision_id = fields[:revision_id]
-                description = url_and_desc.last
-                if url =~ %r{^http://} #ignore not http protocol links for now (including https)
-                  @@irc_log.info("#{fields[:revision_id]}: #{url}")
-                  follow_link(revision_id, url, description)
-                else
-                  @@irc_log.info("would have followed link: #{url}")
-                end
-              end # end links each
-            else
-              @@irc_log.info("no links")
-            end #end unless (following link)
-          else
-            @@irc_log.error "badrevids: #{bad_revs.inner_html.to_s}" #noked.css('badrevids').to_s
-          end #end bad revid check
-          done = true
-        rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-          @@irc_log.error "problem following revision: #{e}"
-          @@irc_log.error e.backtrace.join("\n") if e.backtrace
-        ensure
-          @@irc_log.error("broken at following revisions") unless done
-        end #end rescue
-      
-      end #end em-http
-    end #end follow-revisions
-    
-    
-    def follow_link revision_id, url, description
-      #TODO test to see if these redirects/timeouts are too small/what happens if they do timeout/run out of redirections?
-      EventMachine::HttpRequest.new(url).get(:redirects => 0, :timeout => 5).callback do |http| #TODO :redirects => 2, b/c if they redirect to 
-        begin
-          #revision_id = fields[:revision_id]
-          #description = url_and_desc.last
-          #shallow copy all reponse headers to a hash with lowercase symbols as keys
-          #em-http converts dashs to symbols
-          headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-          #@@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
-          #ignore binary, non content-type text/html files
-          if(headers[:content_type] =~ /^text\/html/ )
-            #@@irc_log.info("stored source: #{url}")
-            fields = {
-              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #only store 1000 characters for now
-              :headers => Marshal.dump(headers), 
-              :url => url, 
-              :revision_id => revision_id, 
-              :wikilink_description => description
-            }
-
-            link_table = DB[:links]
-        	  link_table << fields
-      	  else
-            fields = {
-              :source => 'encoded', 
-              :headers => Marshal.dump(headers), 
-              :url => url, 
-              :revision_id => revision_id, 
-              :wikilink_description => description
-            }
-
-            link_table = DB[:links]
-        	  link_table << fields
-    	    end
-        rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
-          @@irc_log.error "Followed link: #{e}"
-        end #end rescue
-      end #end em-http
-    end
     
     #given the irc announcement in the irc monitoring channel for en.wikipedia, this returns the different fields
     # 0: title (string), 
@@ -358,14 +264,33 @@ module Mini
       # end
     end
   end
-end
 
-module Mini
-  module Listener
+  module IrcListener #actually, 
     def receive_data(data) # echo "#musicteam,#legal,@alice New album uploaded: ..." | nc somemachine 12345.
       all, targets, *payload = *data.match(/^(([\#@]\S+,? ?)*)(.*)$/)
       targets = targets.split(",").map { |target| target.strip }.uniq
       IRC.connection.say(payload.pop.strip, targets)
+    end
+  end
+  
+  #call with EM.connect
+  class RevisionSender < EventMachine::Connection
+    include EventMachine::Protocols::ObjectProtocol
+    attr_accessor :config
+    
+    def initialize options
+      self.config = options
+    end
+    
+    def send_revision revision
+      send_object(revision)
+    end
+    
+    #when we loose a connection, pause for 30s and then try to reconnect, give it time to be rebooted
+    def unbind
+      EM.add_timer(30) do
+        reconnect('127.0.0.1', config[:port])
+      end
     end
   end
 end
@@ -399,7 +324,7 @@ unless DB.table_exists?(:links)
   end
 end
 
-Mini::Bot.start(
+EmMwXlink::Bot.start(
   :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
   :mini_port => 12345,
   :web_port => 2345,
