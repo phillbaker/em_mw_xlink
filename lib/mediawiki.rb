@@ -1,6 +1,7 @@
 require 'cgi'
 require 'uri'
-require 'timeout'
+require 'bundler/setup'
+require 'system_timer'
 
 module Mediawiki
   
@@ -24,6 +25,7 @@ module Mediawiki
     #returns diff text, 
     def parse_links xml_diff_unescaped
       diff_html = CGI.unescapeHTML(xml_diff_unescaped)
+      raise Exception.new('trying to parse nothing') unless diff_html.size > 0
       doc = Hpricot(diff_html) #noked = Nokogiri.HTML(diff_html)
       linkarray = []
       doc.search('.diff-addedline').each do |td| #noked.css('.diff-addedline').each do |td| 
@@ -42,14 +44,17 @@ module Mediawiki
         wikilink_regex = /\[(#{url_regex}\s*(.*?))\]/
         #TODO on longer revisions, this regex takes FOREVER! need to simplify! see timeout below
         #TODO this is likely either a little aggressive or we need to unescape the html somewhere:
-        # http://www.ssb.no/emner/00/90/rapp_9913/rapp_9913.pdf|language=Norwegian}}&lt;/ref&gt
+        #411506772: http://www.brisbanetimes.com.au/queensland/citycat-service-set-for-fast-return-20110201-1ac24.html|
+        #411506744: http://www.bizjournals.com/austin/stories/2002/06/10/story1.html]"La
+        #411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
+        #411506361: http://www.therockradio.com/2008/09/paperwork-holds-up-led-zeppelin-reunion.html|publisher=therockradio.com|title=Robert
         links = {}
         revisions.each do |revision|
           #wikilinks
           
           regex_results = []
           begin
-            status = Timeout::timeout(2) do
+            status = SystemTimer.timeout(2) do
               #the following falls into infinite loops/take exponential time 
               #on certain pieces of text with the pre/post lookups, so limit it
               regex_results = revision.to_s.scan(wikilink_regex)
@@ -68,7 +73,7 @@ module Mediawiki
           #TODO come up with the right regex, we'll just eliminate the same ones for now...not efficient like n^2; okay, most edits are small
           regex_results = []
           begin
-            status = Timeout::timeout(2) do
+            status = SystemTimer.timeout(2) do
               regex_results = revision.to_s.scan(url_regex)
             end
           rescue Timeout::Error
@@ -91,6 +96,7 @@ module Mediawiki
     
     #returns diff, attrs, tags
     def parse_revision xml
+      raise Exception.new('trying to parse nothing') unless xml.size > 0
       doc = Hpricot(xml) #noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
       attrs = {}
       #page attrs

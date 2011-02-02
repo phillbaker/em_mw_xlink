@@ -228,12 +228,13 @@ module Mini
       #get the xml from wikipedia
       url = Mediawiki::form_url({:prop => :revisions, :revids => fields[:revision_id], :rvdiffto => 'prev', :rvprop => 'ids|flags|timestamp|user|size|comment|parsedcomment|tags|flagged' })
       #TODO wikipeida requires a User-Agent header, and we didn't supply one, so em-http must...
-      EventMachine::HttpRequest.new(url).get.callback do |http|
+      EventMachine::HttpRequest.new(url).get(:timeout => 5).callback do |http|
         #@@irc_log.info('hit mediawiki servers')
         done = false
         begin
-          #parse the xml
           xml = http.response.to_s
+          #parse the xml
+          raise Exception.new('trying to parse nothing') unless xml.size > 0
           doc = Hpricot(xml)#noked = Nokogiri.XML(xml)
           #@@irc_log.info('nok\'ed the xml')
           #test to see if we have a badrevid
@@ -256,7 +257,7 @@ module Mini
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
                 if url =~ %r{^http://} #ignore not http protocol links for now (including https)
-                  @@irc_log.info("following link: #{url}")
+                  @@irc_log.info("#{fields[:revision_id]}: #{url}")
                   follow_link(revision_id, url, description)
                 else
                   @@irc_log.info("would have followed link: #{url}")
@@ -281,7 +282,8 @@ module Mini
     
     
     def follow_link revision_id, url, description
-      EventMachine::HttpRequest.new(url).get(:redirects => 10).callback do |http|
+      #TODO test to see if these redirects/timeouts are too small/what happens if they do timeout/run out of redirections?
+      EventMachine::HttpRequest.new(url).get(:redirects => 0, :timeout => 5).callback do |http| #TODO :redirects => 2, b/c if they redirect to 
         begin
           #revision_id = fields[:revision_id]
           #description = url_and_desc.last
