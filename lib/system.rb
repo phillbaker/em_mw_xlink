@@ -13,17 +13,19 @@ require 'lib/em_irc.rb'
 
 module EmMwXlink
   class<<self
-    DB = nil #holder for db connection
+    def db
+      @@db
+    end
     
     def start_db
       log = Logger.new("#{LOG_DIR_PATH}/db.log")
       log.level = Logger::WARN
-      DB = Sequel.sqlite "en_wikipedia.sqlite", :logger => log
+      @@db = Sequel.sqlite "en_wikipedia.sqlite", :logger => log
       #DB.sql_log_level = :debug
       # :default => :'datetime(\'now\',\'localtime\')'.sql_function
       # DATE DEFAULT (datetime('now','localtime'))s
-      unless DB.table_exists?(:samples)
-        DB.create_table :samples do
+      unless @@db.table_exists?(:samples)
+        @@db.create_table :samples do
           primary_key :id #autoincrementing primary key
           String :title
           String :flags
@@ -35,8 +37,8 @@ module EmMwXlink
           #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
         end
       end
-      unless DB.table_exists?(:links)
-        DB.create_table :links do
+      unless @@db.table_exists?(:links)
+        @@db.create_table :links do
           primary_key :id #autoincrementing primary key
           String :source, :text => true #or blob?
           String :headers, :text => true

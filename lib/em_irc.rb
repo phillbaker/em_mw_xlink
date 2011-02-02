@@ -198,7 +198,7 @@ module EmMwXlink
         begin
         	if line =~ Mediawiki::IRC_REGEXP
         	  fields = process_irc(line)
-        	  sample_table = DB[:samples]
+        	  sample_table = EmMwXlink::db[:samples]
         	  sample_table << fields #something else to do is to create a new column that tracks whether we've successfully tracked this guy
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
@@ -207,6 +207,7 @@ module EmMwXlink
         	      @@irc_log.info('sending to numero uno')
         	      self.config[:xlink_1].send_revision(fields)
       	      else
+      	        #TODO need to deal with reconnecting to the restarted 1
       	        @@irc_log.info('failing over to numero dos')
       	        self.config[:xlink_2].send_revision(fields)
     	        end

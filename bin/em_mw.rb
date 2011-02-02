@@ -54,6 +54,8 @@ if action == 'start'
     exit(1)
   end
 
+  EmMwXlink::start_db() #do this here so that the variables can be shared on all threads
+
   pid_xlink_1 = Process.fork do
     trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
       exit(0)
@@ -68,7 +70,7 @@ if action == 'start'
       exit(0)
     end
     #start the xlinker
-    EmMwXlink::start_xlink_1()
+    EmMwXlink::start_xlink_2()
   end
   Process.detach(pid_xlink_2)
 
@@ -79,7 +81,6 @@ if action == 'start'
       exit(0)  #TODO fix exit error
     end
     begin
-      EmMwXlink::start_db()
       EmMwXlink::start_irc()
     rescue RuntimeError => e 
       #TODO also on most errors we should let it bubble up to here

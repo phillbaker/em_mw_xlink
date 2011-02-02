@@ -86,7 +86,7 @@ module EmMwXlink
               :wikilink_description => description
             }
 
-            link_table = DB[:links]
+            link_table = EmMwXlink::db[:links]
         	  link_table << fields
       	  else
             fields = {
@@ -97,11 +97,12 @@ module EmMwXlink
               :wikilink_description => description
             }
 
-            link_table = DB[:links]
+            link_table = EmMwXlink::db[:links]
         	  link_table << fields
     	    end
         rescue EventMachine::ConnectionNotBound, SQLite3::SQLException, Exception => e
           @@xlink_log.error "Followed link: #{e}"
+          @@xlink_log.error "Followed link: #{e.backtrace}"
         end #end rescue
       end #end em-http
     end
