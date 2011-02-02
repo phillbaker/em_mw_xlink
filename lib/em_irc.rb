@@ -204,7 +204,7 @@ module Mini
         	  if should_follow?(fields[:title])
         	    sleep(5) #wait for mediawiki propogation...
         	    #TODO queue everything here, fields is a simple ruby hash: push to other, out of process EM clients to deal with; let them die/etc
-        	    #follow_revision(fields)
+        	    follow_revision(fields)
         	    #@@irc_log.info("would have follow this revision")
       	    end
     	    else
