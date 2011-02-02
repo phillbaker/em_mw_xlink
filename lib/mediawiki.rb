@@ -45,6 +45,7 @@ module Mediawiki
         links = {}
         revisions.each do |revision|
           #wikilinks
+          #TODO the following also seems to be able to fall into infinite loops
           regex_results = revision.to_s.scan(wikilink_regex) #TODO what if there are multiple matches?
           unless regex_results.empty?
             regex_results.each do |regex_result|
@@ -77,32 +78,32 @@ module Mediawiki
       attrs = {}
       #page attrs
       doc.search('page').each do |page| #noked.css('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
-        page.attributes.each do |k,v|
-          attrs[v.name] = v.value
+        page.attributes.to_hash.each do |k,v|
+          attrs[k] = v
         end
       end
 
       #revision attrs
       doc.search('rev').each do |rev| #noked.css('rev').each do |rev|
-        rev.attributes.each do |k,v|
-          attrs[v.name] = v.value
+        rev.attributes.to_hash.each do |k,v|
+          attrs[k] = v
         end
       end
 
       #tags
       tags = []
-      doc.search('tags').each do |tags| #noked.css('tags').children.each do |child|
-        tags << child.children.to_s
+      doc.search('tags/tag').each do |tag| #noked.css('tags').children.each do |child|
+        tags << tag.inner_html
       end
 
       #diff attributes
-      diff_elem.search('diff') #diff_elem = noked.css('diff')
+      diff_elem = doc.search('diff') #diff_elem = noked.css('diff')
       diff_elem.each do |diff|
-        diff.attributes.each do |k,v|
-          attrs[v.name] = v.value
+        diff.attributes.to_hash.each do |k,v|
+          attrs[k] = v
         end
       end
-      diff = diff_elem.inner_html #diff_elem.children.to_s
+      diff = diff_elem.size > 1 ? diff_elem.first.inner_html : diff_elem.inner_html #diff_elem.children.to_s
 
       #pull out the diff_xml (TODO and other stuff)
       [diff, attrs, tags]
