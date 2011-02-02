@@ -255,8 +255,12 @@ module Mini
                 end
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
-                follow_link(revision_id, url, description)
-                #@@irc_log.info("would have followed link: #{url}")
+                if url =~ %r{^http://} #ignore not http protocol links for now (including https)
+                  @@irc_log.info("following link: #{url}")
+                  follow_link(revision_id, url, description)
+                else
+                  @@irc_log.info("would have followed link: #{url}")
+                end
               end # end links each
             else
               @@irc_log.info("no links")
@@ -284,7 +288,7 @@ module Mini
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-          @@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
+          #@@irc_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
           if(headers[:content_type] =~ /^text\/html/ )
             #@@irc_log.info("stored source: #{url}")

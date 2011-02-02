@@ -40,18 +40,22 @@ module Mediawiki
         url_regex = %r{(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))}x
         #based on http://www.mediawiki.org/wiki/Markup_spec/BNF/Links
         wikilink_regex = /\[(#{url_regex}\s*(.*?))\]/
-        #TOOD only look at text in the .diffchange
-        #TODO pull any correctly formed links in the diff text
-        #TODO on longer revisions, this regex takes FOREVER! need to simplify!
+        #TODO on longer revisions, this regex takes FOREVER! need to simplify! see timeout below
+        #TODO this is likely either a little aggressive or we need to unescape the html somewhere:
+        # http://www.ssb.no/emner/00/90/rapp_9913/rapp_9913.pdf|language=Norwegian}}&lt;/ref&gt
         links = {}
         revisions.each do |revision|
           #wikilinks
           
           regex_results = []
-          status = Timeout::timeout(5) do
-            #the following falls into infinite loops/take exponential time 
-            #on certain pieces of text with the pre/post lookups, so limit it
-            regex_results = revision.to_s.scan(wikilink_regex)
+          begin
+            status = Timeout::timeout(2) do
+              #the following falls into infinite loops/take exponential time 
+              #on certain pieces of text with the pre/post lookups, so limit it
+              regex_results = revision.to_s.scan(wikilink_regex)
+            end
+          rescue Timeout::Error
+            #hm...we'd probably like to log this...
           end
           unless regex_results.empty?
             regex_results.each do |regex_result|
@@ -63,8 +67,12 @@ module Mediawiki
           #interpreted links, but don't just grab the same ones as above
           #TODO come up with the right regex, we'll just eliminate the same ones for now...not efficient like n^2; okay, most edits are small
           regex_results = []
-          status = Timeout::timeout(5) do
-            regex_results = revision.to_s.scan(url_regex)
+          begin
+            status = Timeout::timeout(2) do
+              regex_results = revision.to_s.scan(url_regex)
+            end
+          rescue Timeout::Error
+            #hm...we'd probably like to log this...
           end
           unless regex_results.empty?
             regex_results.each do |regex_result|
