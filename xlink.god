@@ -46,15 +46,15 @@ require 'lib/system.rb'
     
     w.start = xlink_start
     w.stop = lambda {
-      #TODO no-op
+      p = port.to_sym
+      File.open("tmp/xlink.#{p.to_s}.pid", 'w') {|f| f.write(pid) }
     }
     #w.restart = xlink_start #TODO this should only be called if it's dead, but it should probably not be the same as start
-    w.start_grace = 30.seconds
-    w.restart_grace = 30.seconds
+    w.start_grace = 20.seconds
+    w.restart_grace = 20.seconds
     
     w.start_if do |start|
       start.condition(:process_running) do |c|
-        c.interval = 5.seconds
         c.running = false
         c.notify = 'phill'
       end

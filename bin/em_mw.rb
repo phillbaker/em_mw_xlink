@@ -115,7 +115,7 @@ if action == 'start'
   File.open('tmp/xlink.8901.pid', 'w') {|f| f.write(pid_xlink_2) }
   File.open('tmp/irc.pid', 'w') {|f| f.write(pid) }
   Process.detach(pid)
-  god.join
+  god.join #wait to make sure god starts
 else
   unless File.exist?('tmp/irc.pid')
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
@@ -126,12 +126,12 @@ else
       File.open(file,'r') do |f|
         begin
           Process.kill("QUIT", f.readline.to_i)
+          File.delete(file) #only delete if we s
         rescue Errno::ESRCH
           puts "Error: cannot stop one of the PIDs, PID does not exist. It may have already been killed, or may have exited due to an error"
           # stopping an already stopped process is considered a success (exit status 0)
         end
       end
-      File.delete(file)
     end
   end
 end
