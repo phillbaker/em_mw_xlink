@@ -73,6 +73,13 @@ if action == 'start'
     EmMwXlink::start_xlink_2()
   end
   Process.detach(pid_xlink_2)
+  
+  #TODO looks like god needs a start delay before starting to monitor; that should be specified by god; it daemonizes itself
+  god = Thread.new {
+    sleep(10)
+    EmMwXlink::start_god()
+  }
+  
 
   #TODO we should not fork until we setup on the same thread as where we started, we should fork after that  
   pid = Process.fork do #TODO put this in a class or something, get it out of this file
@@ -104,28 +111,28 @@ if action == 'start'
     end
   end
   
-  pid_file = File.open(PID_FILE_PATH, 'w')
-  pid_file.write("#{pid}\n#{pid_xlink_1}\n#{pid_xlink_2}")
-  pid_file.close
+  File.open('tmp/xlink.7890.pid', 'w') {|f| f.write(pid_xlink_1) }
+  File.open('tmp/xlink.8901.pid', 'w') {|f| f.write(pid_xlink_2) }
+  File.open('tmp/irc.pid', 'w') {|f| f.write(pid) }
   Process.detach(pid)
+  god.join
 else
-  unless File.exist?(PID_FILE_PATH)
+  unless File.exist?('tmp/irc.pid')
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
-    pid_file = File.new(PID_FILE_PATH, "r")
-    lines = pid_file.collect{|line| line }
-    lines.each do |line|
-      #puts "#{pid} #{pid_watcher}" if pid_watcher
-      begin
-        Process.kill("QUIT", line.to_i)
-      rescue Errno::ESRCH
-        puts "Error: cannot stop one of the PIDs, PID does not exist. It may have already been killed, or may have exited due to an error"
-        # stopping an already stopped process is considered a success (exit status 0)
+    ['xlink.7890', 'xlink.8901', 'irc'].each do |name|
+      file = "tmp/#{name}.pid"
+      File.open(file,'r') do |f|
+        begin
+          Process.kill("QUIT", f.readline.to_i)
+        rescue Errno::ESRCH
+          puts "Error: cannot stop one of the PIDs, PID does not exist. It may have already been killed, or may have exited due to an error"
+          # stopping an already stopped process is considered a success (exit status 0)
+        end
       end
+      File.delete(file)
     end
-    pid_file.close
-    File.delete(PID_FILE_PATH)
   end
 end
 

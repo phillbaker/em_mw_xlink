@@ -182,10 +182,15 @@ module EmMwXlink
     
     def receive_line(line)
       case line
-      when /^PING (.*)/ : command('PONG', $1)
-      when /^:(.*?)\ :Nickname\ is\ already\ in\ use\.$/ :  #:[hostname] 433 * [username] :Nickname is already in use.
+      #/^PING :(.*)$/
+      when /^PING :(.*)$/ : 
+        command('PONG', $1)
+        @@irc_log.info(line)
+      when /^:(.*?)\ :Nickname\ is\ already\ in\ use\.$/ :  
+        #:[hostname] 433 * [username] :Nickname is already in use.
         raise RuntimeError.new('nickname in use') #TODO make our own exception for this
-      #TODO do some further checking on whether we're successful in connection to channel/etc.: http://www.networksorcery.com/enp/protocol/irc.htm
+      #TODO do some further checking on whether we're successful in connection to channel/etc.: 
+      # http://www.networksorcery.com/enp/protocol/irc.htm
       when /^:(\S+) PRIVMSG (.*) :\?(.*)$/ : queue($1, $2, $3)
       when /^:\S* \d* #{ config[:user] } @ #{ '#' + config[:channels].first } :(.*)/ : dequeue($1)
       else
@@ -289,7 +294,7 @@ module EmMwXlink
     
     #when we loose a connection, pause for 30s and then try to reconnect, give it time to be rebooted
     def unbind
-      EM.add_timer(30) do
+      EM.add_timer(10) do
         reconnect('127.0.0.1', config[:port])
       end
     end

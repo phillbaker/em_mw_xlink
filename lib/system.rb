@@ -7,6 +7,7 @@ require 'sinatra/base'
 require 'em-http'
 require 'sequel'
 require 'sqlite3'
+require 'god/cli/run'
 
 require 'lib/em_xlink.rb'
 require 'lib/em_irc.rb'
@@ -48,6 +49,12 @@ module EmMwXlink
           #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
         end
       end
+      
+      #get insert statements ready: http://sequel.rubyforge.org/rdoc/files/doc/prepared_statements_rdoc.html
+      #DB[:items].prepare(:insert, :insert_with_name, :name=>:$n)
+      #DB.call(:insert_with_name, :n=>'Jim')
+      #DB[:items].prepare(:insert, :insert_with_name, :name=>:$n)
+      #DB.call(:insert_with_name, :n=>'Jim')
     end
     
     def start_irc
@@ -73,6 +80,12 @@ module EmMwXlink
       EventMachine.run do
         @sig = EventMachine.start_server('127.0.0.1', 8901, EmMwXlink::RevisionReceiver)
       end
+    end
+    
+    def start_god
+      #auto bind to port
+      options = { :daemonize => true, :pid => 'tmp/god.pid', :log => 'log/god.log', :port => "0", :syslog => false, :events => true, :config => 'xlink.god' } #:attach => , #TODO attach to the main pid
+      God::CLI::Run.new(options)
     end
   end
 end

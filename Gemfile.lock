@@ -10,6 +10,7 @@ GEM
       eventmachine (>= 0.12.9)
     escape_utils (0.1.9)
     eventmachine (0.12.10)
+    god (0.11.0)
     hpricot (0.8.3)
     luislavena-sqlite3-ruby (1.2.5)
     rack (1.2.0)
@@ -26,6 +27,7 @@ DEPENDENCIES
   SystemTimer
   em-http-request
   eventmachine
+  god
   hpricot
   luislavena-sqlite3-ruby (= 1.2.5)
   rack (= 1.2.0)

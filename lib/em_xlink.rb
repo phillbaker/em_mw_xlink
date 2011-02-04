@@ -38,9 +38,12 @@ module EmMwXlink
                 unless url =~ url_regex
                   url = "http://#{url}"
                 end
+                #TODO instead do something like html unescaping the url and then re-parsing it, that shouldn't unescape the url too
+                url = url.gsub(%r{&lt;/ref&gt$}, '') #if we end in '&lt;/ref&gt', then strip that; little hacky but problem from the url parsing
+                
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
-                if url =~ %r{^http://} #ignore not http protocol links for now (including https)
+                if url =~ %r{^http://} #TODO ignore not http protocol links for now (including https)
                   @@xlink_log.info("#{fields[:revision_id]}: #{url}")
                   follow_link(revision_id, url, description)
                 else
@@ -48,7 +51,7 @@ module EmMwXlink
                 end
               end # end links each
             else
-              @@xlink_log.info("no links")
+              #@@xlink_log.info("no links")
             end #end unless (following link)
           else
             @@xlink_log.error "badrevids: #{bad_revs.inner_html.to_s}"
