@@ -26,15 +26,17 @@ module Mediawiki
     def parse_links xml_diff_unescaped
       diff_html = CGI.unescapeHTML(xml_diff_unescaped)
       raise Exception.new('trying to parse nothing') unless diff_html.size > 0
-      doc = Hpricot(diff_html) #noked = Nokogiri.HTML(diff_html)
+      doc = Hpricot(diff_html)
       linkarray = []
       doc.search('.diff-addedline').each do |td| #noked.css('.diff-addedline').each do |td| 
         revisions = []
-        if(td.search('.diffchange').empty?)#if(td.css('.diffchange').empty?) #we're dealing with a full line added
-          revisions << td.inner_html #td.content 
+        if(td.search('.diffchange').empty?)#we're dealing with a full line added
+          #TODO test: CGI.unescapeHTML(td.inner_html) #since we're looking for the text as entered, we need to unescape again
+          # should eliminate: 411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
+          revisions << td.inner_html 
         else
-          td.search('.diffchange').each do |diff| #td.css('.diffchange').each do |diff|
-            revisions << diff.inner_html #diff.content
+          td.search('.diffchange').each do |diff|
+            revisions << diff.inner_html #TODO test: CGI.unescapeHTML(diff.inner_html)
           end
         end
         #http://daringfireball.net/2010/07/improved_regex_for_matching_urls
@@ -48,13 +50,14 @@ module Mediawiki
         #411506744: http://www.bizjournals.com/austin/stories/2002/06/10/story1.html]"La
         #411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
         #411506361: http://www.therockradio.com/2008/09/paperwork-holds-up-led-zeppelin-reunion.html|publisher=therockradio.com|title=Robert
+        #411901519: http://e3.gamespot.com/story/6265808/portal-2-steamworks-ps3-bound-in-2011]
         links = {}
         revisions.each do |revision|
           #wikilinks
           
           regex_results = []
           begin
-            status = SystemTimer.timeout(2) do
+            status = SystemTimer.timeout(5) do
               #the following falls into infinite loops/take exponential time 
               #on certain pieces of text with the pre/post lookups, so limit it
               regex_results = revision.to_s.scan(wikilink_regex)
@@ -73,7 +76,7 @@ module Mediawiki
           #TODO come up with the right regex, we'll just eliminate the same ones for now...not efficient like n^2; okay, most edits are small
           regex_results = []
           begin
-            status = SystemTimer.timeout(2) do
+            status = SystemTimer.timeout(5) do
               regex_results = revision.to_s.scan(url_regex)
             end
           rescue Timeout::Error

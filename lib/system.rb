@@ -35,7 +35,7 @@ module EmMwXlink
           Integer :revision_id
           Integer :byte_diff
           String :comment
-          #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
+          DateTime :created, :default => "(datetime(\'now\'))"
         end
       end
       unless @@db.table_exists?(:links)
@@ -46,15 +46,31 @@ module EmMwXlink
           String :url
           Integer :revision_id
           String :wikilink_description
-          #DateTime :created, :default => :'(datetime(\'now\'))'.sql_function() #TODO
+          Integer :status
+          String :last_effective_url
+          DateTime :created, :default => "(datetime(\'now\'))"
         end
       end
       
       #get insert statements ready: http://sequel.rubyforge.org/rdoc/files/doc/prepared_statements_rdoc.html
-      #DB[:items].prepare(:insert, :insert_with_name, :name=>:$n)
-      #DB.call(:insert_with_name, :n=>'Jim')
-      #DB[:items].prepare(:insert, :insert_with_name, :name=>:$n)
-      #DB.call(:insert_with_name, :n=>'Jim')
+      @@db[:samples].prepare(:insert, :insert_sample, 
+        :title => :$title, 
+        :flags => :$flags, 
+        :user => :$user, 
+        :old_id => :$old_id, 
+        :revision_id => :$revision_id, 
+        :byte_diff => :$byte_diff, 
+        :comment => :$comment
+      )
+      @@db[:links].prepare(:insert, :insert_link,
+        :source => :$source,
+        :headers => :$headers,
+        :url => :$url,
+        :revision_id => :$revision_id,
+        :wikilink_description => :$wikilink_description,
+        :status => :$status,
+        :last_effective_url => :$last_effective_url
+      )
     end
     
     def start_irc

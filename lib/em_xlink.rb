@@ -44,7 +44,7 @@ module EmMwXlink
                 revision_id = fields[:revision_id]
                 description = url_and_desc.last
                 if url =~ %r{^http://} #TODO ignore not http protocol links for now (including https)
-                  @@xlink_log.info("#{fields[:revision_id]}: #{url}")
+                  #@@xlink_log.info("#{fields[:revision_id]}: #{url}")
                   follow_link(revision_id, url, description)
                 else
                   @@xlink_log.info("would have followed link: #{url}")
@@ -70,34 +70,32 @@ module EmMwXlink
 
     def follow_link revision_id, url, description
       #TODO test to see if these redirects/timeouts are too small/what happens if they do timeout/run out of redirections?
-      EventMachine::HttpRequest.new(url).get(:redirects => 0, :timeout => 5).callback do |http| #TODO :redirects => 2, b/c if they redirect to 
+      EventMachine::HttpRequest.new(url).get(:redirects => 5, :timeout => 5).callback do |http|
         begin
-          #revision_id = fields[:revision_id]
-          #description = url_and_desc.last
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
           headers = http.response_header.inject({}){|memo,(k,v)| memo[k.to_s.downcase.to_sym] = v; memo}
-          #@@xlink_log.info("followed link: #{url}; #{headers[:content_type]}")
           #ignore binary, non content-type text/html files
           if(headers[:content_type] =~ /^text\/html/ )
-            #@@xlink_log.info("stored source: #{url}")
-            fields = {
-              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #only store 1000 characters for now
-              :headers => Marshal.dump(headers), 
-              :url => url, 
-              :revision_id => revision_id, 
-              :wikilink_description => description
-            }
-
-            link_table = EmMwXlink::db[:links]
-        	  link_table << fields
+            @@xlink_log.info("storing #{revision_id}: #{url}")
+            EmMwXlink::db.call(:insert_link, 
+              :source => http.response.to_s.gsub(/\x00/, ''), #take out null characters, just in case
+              :headers => Marshal.dump(headers),
+              :url => url,
+              :revision_id => revision_id,
+              :wikilink_description => description,
+              :status => http.response_header.status,
+              :last_effective_url => http.last_effective_url.to_s
+            )
       	  else
             fields = {
-              :source => 'encoded', 
+              :source => 'non-html', 
               :headers => Marshal.dump(headers), 
               :url => url, 
               :revision_id => revision_id, 
-              :wikilink_description => description
+              :wikilink_description => description,
+              :status => http.response_header.status,
+              :last_effective_url => http.last_effective_url.to_s
             }
 
             link_table = EmMwXlink::db[:links]
