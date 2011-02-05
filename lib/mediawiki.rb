@@ -31,12 +31,13 @@ module Mediawiki
       doc.search('.diff-addedline').each do |td| #noked.css('.diff-addedline').each do |td| 
         revisions = []
         if(td.search('.diffchange').empty?)#we're dealing with a full line added
-          #TODO test: CGI.unescapeHTML(td.inner_html) #since we're looking for the text as entered, we need to unescape again
+          #TODO instead do something like html unescaping the url and then re-parsing it, that shouldn't unescape the url too
+          #TODO test:  #since we're looking for the text as entered, we need to unescape again
           # should eliminate: 411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
-          revisions << td.inner_html 
+          revisions << CGI.unescapeHTML(td.inner_html)
         else
           td.search('.diffchange').each do |diff|
-            revisions << diff.inner_html #TODO test: CGI.unescapeHTML(diff.inner_html)
+            revisions << CGI.unescapeHTML(diff.inner_html)
           end
         end
         #http://daringfireball.net/2010/07/improved_regex_for_matching_urls
@@ -46,11 +47,11 @@ module Mediawiki
         wikilink_regex = /\[(#{url_regex}\s*(.*?))\]/
         #TODO on longer revisions, this regex takes FOREVER! need to simplify! see timeout below
         #TODO this is likely either a little aggressive or we need to unescape the html somewhere:
-        #411506772: http://www.brisbanetimes.com.au/queensland/citycat-service-set-for-fast-return-20110201-1ac24.html|
-        #411506744: http://www.bizjournals.com/austin/stories/2002/06/10/story1.html]"La
-        #411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
-        #411506361: http://www.therockradio.com/2008/09/paperwork-holds-up-led-zeppelin-reunion.html|publisher=therockradio.com|title=Robert
-        #411901519: http://e3.gamespot.com/story/6265808/portal-2-steamworks-ps3-bound-in-2011]
+        # 411506772: http://www.brisbanetimes.com.au/queensland/citycat-service-set-for-fast-return-20110201-1ac24.html|
+        # 411506744: http://www.bizjournals.com/austin/stories/2002/06/10/story1.html]"La
+        # 411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
+        # 411506361: http://www.therockradio.com/2008/09/paperwork-holds-up-led-zeppelin-reunion.html|publisher=therockradio.com|title=Robert
+        # 411901519: http://e3.gamespot.com/story/6265808/portal-2-steamworks-ps3-bound-in-2011]
         links = {}
         revisions.each do |revision|
           #wikilinks

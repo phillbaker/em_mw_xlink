@@ -38,7 +38,6 @@ module EmMwXlink
                 unless url =~ url_regex
                   url = "http://#{url}"
                 end
-                #TODO instead do something like html unescaping the url and then re-parsing it, that shouldn't unescape the url too
                 url = url.gsub(%r{&lt;/ref&gt$}, '') #if we end in '&lt;/ref&gt', then strip that; little hacky but problem from the url parsing
                 
                 revision_id = fields[:revision_id]

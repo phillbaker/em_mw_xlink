@@ -121,17 +121,17 @@ else
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
-    ['xlink.7890', 'xlink.8901', 'irc'].each do |name|
+    ['xlink.7890', 'xlink.8901', 'irc', 'god'].each do |name|
       file = "tmp/#{name}.pid"
       File.open(file,'r') do |f|
         begin
           Process.kill("QUIT", f.readline.to_i)
-          File.delete(file) #only delete if we s
         rescue Errno::ESRCH
           puts "Error: cannot stop one of the PIDs, PID does not exist. It may have already been killed, or may have exited due to an error"
           # stopping an already stopped process is considered a success (exit status 0)
         end
       end
+      File.delete(file) #only delete if we succeed
     end
   end
 end
