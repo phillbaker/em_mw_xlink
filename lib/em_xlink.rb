@@ -69,7 +69,7 @@ module EmMwXlink
 
     def follow_link revision_id, url, description
       #TODO test to see if these redirects/timeouts are too small/what happens if they do timeout/run out of redirections?
-      EventMachine::HttpRequest.new(url).get(:redirects => 5, :timeout => 5).callback do |http|
+      EventMachine::HttpRequest.new(url).get(:redirects => 0, :timeout => 5).callback do |http|
         begin
           #shallow copy all reponse headers to a hash with lowercase symbols as keys
           #em-http converts dashs to symbols
