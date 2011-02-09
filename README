@@ -1,0 +1,37 @@
+== em_mw_xlink
+EventMachine MediaWiki eXternal Link is an event machine IRC Bot intended to grab revision data from the Wikipedia IRC revision announcement channels. 
+This code is written as part of a engineering senior design project at the University of Pennsylvania.
+
+== Connection
+To connect the IRC bot to the english language announcement channel, run the em_mw.rb file in the bin directory with the `start' command. For example,
+
+$ ruby bin/em_mw.rb start
+
+You probably also want to start the watcher - an EventMachine based monitor that stops and restarts the bot if the database file stops groups. See --help for more options. 
+
+To disconnect, run the stop.rb file in the bin directory. 
+$ ruby bin/em_mw.rb stop
+  
+
+== Tests
+Tests are in the test/ directory, and can be run doing:
+$ ruby test/the_test.rb
+
+To run all the tests do:
+
+$ cat test/*.rb | ruby
+
+
+== Commands
+EnWikiBot
+
+
+== Background
+Based in part on http://blog.webicity.info/2010/10/14/a-quick-basic-primer-on-the-irc-protocol/.
+
+
+== About
+Version:: 0.1
+Author:: Avantika Agrawal, Phillip Baker, Brittney Exline 
+Copyright:: Copyright (c) 2010 Avantika Agrawal, Phillip Baker, Brittney Exline. Some portions of the code Copyright (c) 2010 Joshua J. Born
+License:: This software is released under MIT license. See http://www.opensource.org/licenses/mit-license.
