@@ -35,20 +35,20 @@ module EmMwXlink
           Integer :revision_id
           Integer :byte_diff
           String :comment
-          DateTime :created, :default => "(datetime(\'now\'))"
+          DateTime :created, :default => "(datetime('now'))".lit #"YYYY-MM-DD HH:MM:SS" in current locale
         end
       end
       unless @@db.table_exists?(:links)
         @@db.create_table :links do
           primary_key :id #autoincrementing primary key
-          String :source, :text => true #or blob?
+          String :source, :text => true #or blob: Blob :source
           String :headers, :text => true
           String :url
           Integer :revision_id
           String :wikilink_description
           Integer :status
           String :last_effective_url
-          DateTime :created, :default => "(datetime(\'now\'))"
+          DateTime :created, :default => "(datetime('now'))".lit
         end
       end
       
