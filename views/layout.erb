@@ -1,0 +1,54 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+  <title><%= "#{@site} : #{@title || @masthead }" %></title>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset/reset-min.css">
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/fonts/fonts-min.css">
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.0/jquery.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+		 $("#ft").html("This is Hello World by JQuery");
+		});
+	</script>
+	<style type="text/css">
+		.message {}
+		
+		.help {}
+		
+		#doc {}
+		
+		#phd {}
+		#hd {}
+		#shd {}
+		#bd {}
+		#ft {}
+	</style>
+</head>
+<body>
+<div id="doc"><!--overall document wrapper-->
+	<div id="phd">
+		<%# prefix header %>
+	</div>
+	<div id="hd">
+		<%# header / masthead: content for header %>
+		<h1><%= @masthead  %></h1>
+	</div>
+	<div id="shd">
+		<p class="message"><%= @flash %></p>
+		<div class="help"><%= @help %></div>
+	</div>
+  <div id="bd">
+		<%# body %>
+		<%= yield  %>
+	</div>
+  <div id="ft">
+		<%# footer %>
+		footer
+	</div>
+</div>
+
+</body>
+</html>
