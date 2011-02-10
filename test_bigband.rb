@@ -33,15 +33,29 @@ class MyApp < Sinatra::Base
   
   before do
     @db = Sequel.sqlite 'en_wikipedia.sqlite.bak'
-    #@db[:samples]
-    #@db[:links]
+    @samples = @db[:samples]
+    @links = @db[:links]
   end
   
   get '/' do
-    @site = 'site'
-    @title = 'title'
-    @masthead = 'masthead'
-    erb(:index, :locals => {:body => 'helloo'})#, {:locals => { :body => 'helloworld and me' }}, {:locals => { :body => 'helloworld and me' }})
+    tod = ''
+    case Time.now.hour
+    when 0..11 :
+      tod = 'morning'
+    when 12..18 :
+      tod = 'afternoon'
+    else
+      tod = 'evening'
+    end
+    samples = @samples.count
+    links = @links.count
+    
+    erb(:index, :locals => {
+      :site => 'Wikipedia Spam Detection', 
+      :title => 'Home', 
+      :masthead => 'Wikipedia Spam Detection',
+      :body => "Good #{tod}, there are #{samples} samples and #{links} links.", 
+    })
   end
   
   get '/map' do

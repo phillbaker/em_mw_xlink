@@ -4,28 +4,50 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
   <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
-  <title><%= "#{@site} : #{@title || @masthead }" %></title>
+  <title><%= "#{locals[:site]} : #{locals[:title] || locals[:masthead] }" %></title>
 	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/reset/reset-min.css">
 	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.2r1/build/fonts/fonts-min.css">
+	<style type="text/css">
+		.message {}
+		.help {}
+		.announcement {
+			font-size: 200%;
+			font-family: sans-serif;
+			font-weight: bold;
+			text-align: center;
+		}
+		body {}
+		h1 {
+			font-size: 300%;
+			font-family: sans-serif;
+			font-weight: bolder;
+		}
+		#doc {
+			width: 70em;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		#phd {}
+		#hd {
+			padding: 1em;
+			text-align: center;
+			border-bottom: 3px solid #0F0F0F;
+		}
+		#shd {}
+		#bd {
+			background-color: #F0F0F0;
+			padding: .5em;
+		}
+		#ft {
+			padding: 2em;
+		}
+	</style>
 	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.0/jquery.min.js"></script>
 	<script type="text/javascript">
 		$(document).ready(function(){
 		 $("#ft").html("This is Hello World by JQuery");
 		});
 	</script>
-	<style type="text/css">
-		.message {}
-		
-		.help {}
-		
-		#doc {}
-		
-		#phd {}
-		#hd {}
-		#shd {}
-		#bd {}
-		#ft {}
-	</style>
 </head>
 <body>
 <div id="doc"><!--overall document wrapper-->
@@ -34,11 +56,11 @@
 	</div>
 	<div id="hd">
 		<%# header / masthead: content for header %>
-		<h1><%= @masthead  %></h1>
+		<h1><%= locals[:masthead]  %></h1>
 	</div>
 	<div id="shd">
-		<p class="message"><%= @flash %></p>
-		<div class="help"><%= @help %></div>
+		<p class="message"><%= locals[:flash] %></p>
+		<div class="help"><%= locals[:help] %></div>
 	</div>
   <div id="bd">
 		<%# body %>
