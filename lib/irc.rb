@@ -1,17 +1,8 @@
-#require 'lib/mediawiki.rb'
-#LOG_DIR_PATH = File.dirname(__FILE__) + '/../log'
-
 require 'mediawiki.rb'
 
 require 'logger'
-require 'rubygems'
-require 'bundler/setup'
-
 # require bundled gems
 require 'eventmachine'
-require 'sinatra/base'
-require 'sequel'
-require 'sqlite3'
 
 ##########
 # event machine based mediawiki irc scraper with external link following
@@ -19,104 +10,8 @@ require 'sqlite3'
 #
 #########
 
-#TODO pull this stuff out of the mini module, put it in event machine?
 #TODO extract the irc specific stuff into a gem
-#TOOD add commands to kill the sqlite file/generically clear the db and logs (before start: something like: -c)
 module EmMwXlink
-  class Bot
-    #cattr_accessor :commands, :secret
-    @@commands = {}
-    @@web = Sinatra.new do
-      #post("/:command/:secret") do
-        #command, secret = params.delete("command"), params.delete("secret")
-        #Mini::IRC.connection.execute([command, params].join(" ")) if secret == Mini::Bot.secret
-      get '/' do
-        Mini::Bot.secret
-      end
-    end
-    def self.commands= commands
-      @@commands = commands
-    end
-    def self.commands
-      @@commands
-    end
-    def self.secret= secret
-      @@secret = secret
-    end
-    def self.secret
-      @@secret
-    end
-    def self.start(options)
-      begin
-        @@log = Logger.new("#{LOG_DIR_PATH}/bot.log")
-        @@log.info('starting')
-        EventMachine.run do
-          EventMachine.threadpool_size = 50
-          
-          #connect to our unstable revision processors
-          conn = EventMachine.connect('127.0.0.1', 7890, EmMwXlink::RevisionSender, {:port => 7890})
-          options[:xlink_1] = conn
-          @@log.info(conn.to_s)
-          conn = EventMachine.connect('127.0.0.1', 8901, EmMwXlink::RevisionSender, {:port => 8901})
-          options[:xlink_2] = conn
-          @@log.info(conn.to_s)
-          
-          #connect to the IRC channel
-          conn = EventMachine.connect(options[:server], options[:port].to_i, EmMwXlink::IRC, options)
-          EmMwXlink::IRC.connection = conn #store it there...
-          
-          #start our server to say things back
-          #@signature = EventMachine::start_server("0.0.0.0", options[:mini_port].to_i, EmMwXlink::IrcListener)
-          #Bot.secret = options[:secret]
-          #@@web.run! :port => options[:web_port].to_i #TODO this hijacks external output
-          
-        end
-      rescue Exception => e
-        if e.is_a?(RuntimeError) && (e.to_s == 'no acceptor' || e.to_s == 'nickname in use')
-          @@log.error(e.to_s)
-          #this should be if we're trying to use a port that's already been taken 
-          raise e  #TODO throw a more specific exception (create our own?) like PortInUse
-        else
-          begin
-            @@log.error('Running bot')
-            @@log.error(e)
-            @@log.error(e.backtrace)
-          rescue Exception => e #in case we can't even make the log
-            puts e
-          end
-        end
-      end
-    end
-    
-    def self.run(command, args)
-      proc = Bot.commands[command]
-      proc ? proc.call(args) : (@@log.error "command #{ command } not found. ")
-    end
-    
-    def self.stop
-      @@log.info('stopping')
-      
-      #log out of the irc
-      conn = EmMwXlink::IRC.connection
-      @@log.info('Quitting from IRC channel')
-      conn.command('QUIT')#log out of the irc channel
-      #drop the connection so that we can reconnect if necessary
-      conn.close_connection()
-
-      #stop eventmachine
-      EventMachine.stop_event_loop
-      #EventMachine.stop_server(@signature)
-      
-      EM.next_tick do
-        @@log.info("there are #{EM.connection_count.to_s} connections left")
-      end
-      sleep(1)
-      EventMachine.stop
-      #should I just call: 
-      #Doesn't really matter, it's called in the launch script exit(1) #should really kill this process
-    end
-  end
-
   class IRC < EventMachine::Connection
     include EventMachine::Protocols::LineText2
     attr_accessor :config, :moderators
@@ -268,35 +163,6 @@ module EmMwXlink
       #   reconnect(config[:server], config[:port].to_i)
       #   post_init
       # end
-    end
-  end
-
-  module IrcListener #actually, 
-    def receive_data(data) # echo "#musicteam,#legal,@alice New album uploaded: ..." | nc somemachine 12345.
-      all, targets, *payload = *data.match(/^(([\#@]\S+,? ?)*)(.*)$/)
-      targets = targets.split(",").map { |target| target.strip }.uniq
-      IRC.connection.say(payload.pop.strip, targets)
-    end
-  end
-  
-  #call with EM.connect
-  class RevisionSender < EventMachine::Connection
-    include EventMachine::Protocols::ObjectProtocol
-    attr_accessor :config
-    
-    def initialize options
-      self.config = options
-    end
-    
-    def send_revision revision
-      send_object(revision)
-    end
-    
-    #when we loose a connection, pause for 30s and then try to reconnect, give it time to be rebooted
-    def unbind
-      EM.add_timer(10) do
-        reconnect('127.0.0.1', config[:port])
-      end
     end
   end
 end

@@ -48,6 +48,8 @@ unless ['start', 'stop'].include?(action) #we'll stop watching on stop too
   exit(0)
 end
 
+#TODO clean this up and move it to something like god's CLI package
+#TOOD add commands to kill the sqlite file/generically clear the db and logs (before start: something like: -c)
 if action == 'start'
   if File.exist?(PID_FILE_PATH)
     puts "Error: cannot start a bot. A pid.txt file was found. A bot may be already running."
@@ -76,13 +78,12 @@ if action == 'start'
   
   #TODO looks like god needs a start delay before starting to monitor; that should be specified by god; it daemonizes itself
   god = Thread.new {
-    sleep(10)
+    sleep(10)#wait for other connections to finish
     EmMwXlink::start_god()
   }
   
-
   #TODO we should not fork until we setup on the same thread as where we started, we should fork after that  
-  pid = Process.fork do #TODO put this in a class or something, get it out of this file
+  pid_irc = Process.fork do #TODO put this in a class or something, get it out of this file
     trap("QUIT") do #TODO does this also trap quits on the terminal where this was opened? if you start the process, do a less +F on the file, or tail it, does this get called?
       EmMwXlink::Bot.stop
       exit(0)  #TODO fix exit error
@@ -111,17 +112,26 @@ if action == 'start'
     end
   end
   
-  File.open('tmp/xlink.7890.pid', 'w') {|f| f.write(pid_xlink_1) }
-  File.open('tmp/xlink.8901.pid', 'w') {|f| f.write(pid_xlink_2) }
-  File.open('tmp/irc.pid', 'w') {|f| f.write(pid) }
-  Process.detach(pid)
+  pid_web = Process.fork do
+    trap("QUIT") do
+      exit(0)
+    end
+    EmMwXlink::start_web()
+  end
+  Process.detach(pid_web)
+  
+  File.open('tmp/xlink.pri.pid', 'w') {|f| f.write(pid_xlink_1) }
+  File.open('tmp/xlink.sec.pid', 'w') {|f| f.write(pid_xlink_2) }
+  File.open('tmp/irc.pid', 'w') {|f| f.write(pid_irc) }
+  File.open('tmp/web.pid', 'w') {|f| f.write(pid_web) }
+  Process.detach(pid_irc)#hang onto this one until later, just in case something goes wrong, this is the driving thread
   god.join #wait to make sure god starts
 else
   unless File.exist?('tmp/irc.pid')
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
-    ['xlink.7890', 'xlink.8901', 'irc', 'god'].each do |name|
+    ['xlink.pri', 'xlink.sec', 'irc', 'god', 'web'].each do |name|
       file = "tmp/#{name}.pid"
       File.open(file,'r') do |f|
         begin

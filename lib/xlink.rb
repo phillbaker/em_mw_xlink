@@ -1,11 +1,7 @@
-require 'logger'
-require 'bundler/setup'
-require 'hpricot'
-require 'eventmachine'
-require 'em-http'
-require 'sqlite3'
-
 require 'mediawiki.rb'
+
+require 'logger'
+require 'hpricot'
 
 module EmMwXlink
   @@xlink_log = Logger.new('log/xlink.log')
@@ -66,7 +62,6 @@ module EmMwXlink
       end #end em-http
     end #end follow-revisions
 
-
     def follow_link revision_id, url, description
       #TODO test to see if these redirects/timeouts are too small/what happens if they do timeout/run out of redirections?
       EventMachine::HttpRequest.new(url).get(:redirects => 0, :timeout => 5).callback do |http|
@@ -107,14 +102,4 @@ module EmMwXlink
       end #end em-http
     end
   end
-  #this is the unstable version and we're going to monitor whether they're available on different ports
-  module RevisionReceiver
-    include EventMachine::Protocols::ObjectProtocol
-    
-    def receive_object(revision_hash)
-      EmMwXlink::follow_revision(revision_hash)
-    end
-    
-  end
-  
 end

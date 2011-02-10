@@ -4,15 +4,24 @@ GEM
   specs:
     SystemTimer (1.2.2)
     addressable (2.2.4)
+    cgi_multipart_eof_fix (2.5.0)
+    daemons (1.1.0)
     em-http-request (0.3.0)
       addressable (>= 2.0.0)
       escape_utils
       eventmachine (>= 0.12.9)
-    escape_utils (0.1.9)
+    escape_utils (0.2.0)
     eventmachine (0.12.10)
+    fastthread (1.0.7)
+    gem_plugin (0.2.3)
     god (0.11.0)
     hpricot (0.8.3)
     luislavena-sqlite3-ruby (1.2.5)
+    mongrel (1.1.5)
+      cgi_multipart_eof_fix (>= 2.4)
+      daemons (>= 1.0.3)
+      fastthread (>= 1.0.1)
+      gem_plugin (>= 0.2.3)
     rack (1.2.0)
     sequel (3.20.0)
     sinatra (1.1.2)
@@ -30,6 +39,7 @@ DEPENDENCIES
   god
   hpricot
   luislavena-sqlite3-ruby (= 1.2.5)
+  mongrel
   rack (= 1.2.0)
   sequel
   sinatra

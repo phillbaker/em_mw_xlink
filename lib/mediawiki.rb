@@ -1,6 +1,5 @@
 require 'cgi'
 require 'uri'
-require 'bundler/setup'
 require 'system_timer'
 
 module Mediawiki
@@ -52,6 +51,8 @@ module Mediawiki
         # 411506764: http://bestof.ign.com/2010/ps3/best-quick-fix.html&lt;/ref&gt
         # 411506361: http://www.therockradio.com/2008/09/paperwork-holds-up-led-zeppelin-reunion.html|publisher=therockradio.com|title=Robert
         # 411901519: http://e3.gamespot.com/story/6265808/portal-2-steamworks-ps3-bound-in-2011]
+        
+        #413053997: http://catdir.loc.gov/catdir/samples/cam033/2002031458.pdf|series=Cambridge
         links = {}
         revisions.each do |revision|
           #wikilinks

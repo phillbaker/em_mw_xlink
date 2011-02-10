@@ -3,14 +3,14 @@ require 'bundler/setup'
 
 # require bundled gems
 require 'eventmachine'
-require 'sinatra/base'
 require 'em-http'
 require 'sequel'
 require 'sqlite3'
 require 'god/cli/run'
 
-require 'lib/em_xlink.rb'
-require 'lib/em_irc.rb'
+require 'lib/xlink_server.rb'
+require 'lib/bot.rb'
+require 'lib/web.rb'
 
 module EmMwXlink
   class<<self
@@ -35,7 +35,7 @@ module EmMwXlink
           Integer :revision_id
           Integer :byte_diff
           String :comment
-          DateTime :created, :default => "(datetime('now'))".lit #"YYYY-MM-DD HH:MM:SS" in current locale
+          DateTime :created, :default => "(datetime('now'))".lit #"YYYY-MM-DD HH:MM:SS" in GMT
         end
       end
       unless @@db.table_exists?(:links)
@@ -73,34 +73,46 @@ module EmMwXlink
       )
     end
     
+    #blocks
     def start_irc
       EmMwXlink::Bot.start(
-        :secret => 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD',
-        :mini_port => 12345,
-        :web_port => 2345,
         :server => 'irc.wikimedia.org',#server,
         :port => '6667',#port,
-        :user => 'yasb',#user,
+        :user => IRC_USER,#user,
         :password => '',#password, 
         :channels => ['en.wikipedia']#[*channels]
       )
     end
     
-    def start_xlink_1
-      EventMachine.run do
-        @sig = EventMachine.start_server('127.0.0.1', 7890, EmMwXlink::RevisionReceiver)
+    #blocks
+    def start_web
+      EmMwXlinkStats.secret = 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD'
+      handler = Rack::Handler.get('mongrel')
+      handler_name = handler.name.gsub(/.*::/, '')
+      handler.run EmMwXlinkStats, :Host => '0.0.0.0', :Port => WEB_PORT do |server|
+        [:INT, :TERM].each { |sig| trap(sig) { server.respond_to?(:stop!) ? server.stop! : server.stop } }
+        EmMwXlinkStats.set :running, true
       end
     end
     
+    #blocks
+    def start_xlink_1
+      EventMachine.run do
+        @sig = EventMachine.start_server('0.0.0.0', XLINK_PORT_PRIMARY, EmMwXlink::RevisionServer)
+      end
+    end
+    
+    #blocks
     def start_xlink_2
       EventMachine.run do
-        @sig = EventMachine.start_server('127.0.0.1', 8901, EmMwXlink::RevisionReceiver)
+        @sig = EventMachine.start_server('0.0.0.0', XLINK_PORT_SECONDARY, EmMwXlink::RevisionServer)
       end
     end
     
     def start_god
       #auto bind to port
-      options = { :daemonize => true, :pid => 'tmp/god.pid', :log => 'log/god.log', :port => "0", :syslog => false, :events => true, :config => 'xlink.god' } #:attach => , #TODO attach to the main pid
+      #TODO move all of these to File.join(LOG_DIR + ...)
+      options = { :daemonize => true, :pid => 'tmp/god.pid', :port => "0", :syslog => false, :events => true, :config => 'xlink.god', :log => 'log/god.log', :log_level => :info } #:attach => , #TODO attach to the main pid
       God::CLI::Run.new(options)
     end
   end
