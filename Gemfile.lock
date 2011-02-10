@@ -4,6 +4,7 @@ GEM
   specs:
     SystemTimer (1.2.2)
     addressable (2.2.4)
+    backports (1.18.2)
     cgi_multipart_eof_fix (2.5.0)
     daemons (1.1.0)
     em-http-request (0.3.0)
@@ -22,11 +23,23 @@ GEM
       daemons (>= 1.0.3)
       fastthread (>= 1.0.1)
       gem_plugin (>= 0.2.3)
+    monkey-lib (0.5.4)
+      backports
     rack (1.2.0)
     sequel (3.20.0)
     sinatra (1.1.2)
       rack (~> 1.1)
       tilt (~> 1.2)
+    sinatra-advanced-routes (0.5.1)
+      monkey-lib (~> 0.5.0)
+      sinatra (~> 1.0)
+      sinatra-sugar (~> 0.5.0)
+    sinatra-reloader (0.5.0)
+      sinatra (~> 1.0)
+      sinatra-advanced-routes (~> 0.5.0)
+    sinatra-sugar (0.5.0)
+      monkey-lib (~> 0.5.0)
+      sinatra (~> 1.0)
     tilt (1.2.2)
 
 PLATFORMS
@@ -43,3 +56,5 @@ DEPENDENCIES
   rack (= 1.2.0)
   sequel
   sinatra
+  sinatra-advanced-routes
+  sinatra-reloader

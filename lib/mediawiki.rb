@@ -24,9 +24,9 @@ module Mediawiki
     #returns diff text, 
     def parse_links xml_diff_unescaped
       diff_html = CGI.unescapeHTML(xml_diff_unescaped)
-      raise Exception.new('trying to parse nothing') unless diff_html.size > 0
-      doc = Hpricot(diff_html)
       linkarray = []
+      return linkarray unless diff_html.size > 0
+      doc = Hpricot(diff_html)
       doc.search('.diff-addedline').each do |td| #noked.css('.diff-addedline').each do |td| 
         revisions = []
         if(td.search('.diffchange').empty?)#we're dealing with a full line added
@@ -102,17 +102,17 @@ module Mediawiki
     #returns diff, attrs, tags
     def parse_revision xml
       raise Exception.new('trying to parse nothing') unless xml.size > 0
-      doc = Hpricot(xml) #noked = Nokogiri.XML(xml) #pass it the nok'ed xml? seems a bit presumptious
+      doc = Hpricot(xml) #pass it the nok'ed xml? seems a bit presumptious
       attrs = {}
       #page attrs
-      doc.search('page').each do |page| #noked.css('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
+      doc.search('page').each do |page| #there's only one for each of these, but if there's none by some fluke, we won't die
         page.attributes.to_hash.each do |k,v|
           attrs[k] = v
         end
       end
 
       #revision attrs
-      doc.search('rev').each do |rev| #noked.css('rev').each do |rev|
+      doc.search('rev').each do |rev|
         rev.attributes.to_hash.each do |k,v|
           attrs[k] = v
         end
@@ -120,12 +120,12 @@ module Mediawiki
 
       #tags
       tags = []
-      doc.search('tags/tag').each do |tag| #noked.css('tags').children.each do |child|
+      doc.search('tags/tag').each do |tag|
         tags << tag.inner_html
       end
 
       #diff attributes
-      diff_elem = doc.search('diff') #diff_elem = noked.css('diff')
+      diff_elem = doc.search('diff')
       diff_elem.each do |diff|
         diff.attributes.to_hash.each do |k,v|
           attrs[k] = v
@@ -133,7 +133,6 @@ module Mediawiki
       end
       diff = diff_elem.size > 1 ? diff_elem.first.inner_html : diff_elem.inner_html #diff_elem.children.to_s
 
-      #pull out the diff_xml (TODO and other stuff)
       [diff, attrs, tags]
     end
   end#end of class<<self

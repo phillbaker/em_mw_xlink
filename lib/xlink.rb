@@ -21,7 +21,7 @@ module EmMwXlink
           bad_revs = doc.search('badrevids')
           if bad_revs.first == nil
             diff, attrs, tags = Mediawiki::parse_revision(xml) #don't really like doing this transformation twice...
-
+            #TODO check for 0 sized diff - and do what?
             #parse it for links
             links = Mediawiki::parse_links(diff)
             #if there are links, investigate!
