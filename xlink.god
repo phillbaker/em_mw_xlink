@@ -61,37 +61,18 @@ require 'lib/system.rb'
       end
     end
     
-    #monitor the db file, if it's not modified within a certain time...
-    #don't restart the xlink'ers, need to restart what?; notify for now
-    #TODO file is hardcoded...
-    # w.transition(:up, :restart) do |on|
-    #       on.condition(:file_mtime) do |c|
-    #         c.path = 'en_wikipedia.sqlite'
-    #         c.max_age = 30.seconds #this should be way more than every time we get a sample
-    #         c.notify = 'phill'
-    #       end
-    #     end
-    
-    # m = Metric.new(w)
-    # m.condition(:file_mtime) do |c|
-    #   c.path = 'en_wikipedia.sqlite'
-    #   c.max_age = 30.seconds #this should be way more than every time we get a sample
-    #   c.notify = 'phill'
-    # end
-    # w.conditions.each do |c|
-    #   self.directory[c] = m
-    # end
-    # #start this on start
-    # w.metrics[:start] ||= []
-    # w.metrics[start_state] << m
-    
-    #start monitoring once we're fully started
-    w.transition(:up, nil) do |on|
-      on.condition(:file_mtime) do |c|
-        #c.interval = 40.seconds
-        c.path = 'en_wikipedia.sqlite'
-        c.max_age = 30.seconds #this should be way more than every time we get a sample
-        c.notify = 'phill'
+    #only attach to the first one, but we need a pid, I'm not sure what the conditions for lifecycle are, didn't look like it was being called
+    if(name == XLINK_PORT_PRIMARY.to_s)
+      #monitor the db file, if it's not modified within a certain time...
+      #don't restart the xlink'ers, need to restart what?; notify for now
+      #TODO file is hardcoded...
+      w.transition(:up, nil) do |on|
+        on.condition(:file_mtime) do |c|
+          #c.interval = 40.seconds
+          c.path = 'en_wikipedia.sqlite'
+          c.max_age = 30.seconds #this should be way more than every time we get a sample
+          c.notify = 'phill'
+        end
       end
     end
     
