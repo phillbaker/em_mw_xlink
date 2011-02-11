@@ -41,8 +41,8 @@ module EmMwXlink
       unless @@db.table_exists?(:links)
         @@db.create_table :links do
           primary_key :id #autoincrementing primary key
-          String :source, :text => true #or blob: Blob :source
-          String :headers, :text => true
+          Blob :source
+          Blob :headers
           String :url
           Integer :revision_id
           String :wikilink_description
