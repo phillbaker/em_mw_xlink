@@ -15,7 +15,6 @@ require 'lib/system.rb'
     w.pid_file = "tmp/xlink.#{name}.pid" #interesting...need this to figure out the pid to monitor; REQUIRED
     w.behavior(:clean_pid_file)
     
-    
     #TODO but doesn't look like it's needed w.dir = '/var/www/myapp' #working directory or just use  File.dirname(__FILE__)#; File.join
     
     #TODO why does this not work? => 'no acceptor'
@@ -56,7 +55,42 @@ require 'lib/system.rb'
     
     w.start_if do |start|
       start.condition(:process_running) do |c|
+        #c.interval = 100.seconds
         c.running = false
+        c.notify = 'phill'
+      end
+    end
+    
+    #monitor the db file, if it's not modified within a certain time...
+    #don't restart the xlink'ers, need to restart what?; notify for now
+    #TODO file is hardcoded...
+    # w.transition(:up, :restart) do |on|
+    #       on.condition(:file_mtime) do |c|
+    #         c.path = 'en_wikipedia.sqlite'
+    #         c.max_age = 30.seconds #this should be way more than every time we get a sample
+    #         c.notify = 'phill'
+    #       end
+    #     end
+    
+    # m = Metric.new(w)
+    # m.condition(:file_mtime) do |c|
+    #   c.path = 'en_wikipedia.sqlite'
+    #   c.max_age = 30.seconds #this should be way more than every time we get a sample
+    #   c.notify = 'phill'
+    # end
+    # w.conditions.each do |c|
+    #   self.directory[c] = m
+    # end
+    # #start this on start
+    # w.metrics[:start] ||= []
+    # w.metrics[start_state] << m
+    
+    #start monitoring once we're fully started
+    w.transition(:up, nil) do |on|
+      on.condition(:file_mtime) do |c|
+        #c.interval = 40.seconds
+        c.path = 'en_wikipedia.sqlite'
+        c.max_age = 30.seconds #this should be way more than every time we get a sample
         c.notify = 'phill'
       end
     end
