@@ -6,13 +6,13 @@ require 'lib/system.rb'
 
 [XLINK_PORT_PRIMARY, XLINK_PORT_SECONDARY].each do |port|
   God.watch do |w|
-    p = port.to_sym #keep local copy of the port so it stick with this lambda
-    w.name = "xlink-#{port}"
+    name = "#{port}" #keep local copy of the port so it stick with this lambda
+    w.name = "xlink-#{name}"
     w.interval = 30.seconds # default poll time
     
     #don't really need this because we're working programatically
     #w.pid_file = 'tmp/irc.pid'
-    w.pid_file = "tmp/xlink.#{(port == XLINK_PORT_PRIMARY.to_s ? 'pri' : 'sec')}.pid" #interesting...need this to figure out the pid to monitor; REQUIRED
+    w.pid_file = "tmp/xlink.#{name}.pid" #interesting...need this to figure out the pid to monitor; REQUIRED
     w.behavior(:clean_pid_file)
     
     
@@ -29,7 +29,7 @@ require 'lib/system.rb'
         sleep(10)
         tries = 0
         begin
-          if p.to_s == XLINK_PORT_PRIMARY.to_s
+          if name == XLINK_PORT_PRIMARY.to_s
             EmMwXlink::start_xlink_1()
           else
             EmMwXlink::start_xlink_2()
@@ -41,13 +41,14 @@ require 'lib/system.rb'
         end
       end
       Process.detach(pid)
-      File.open("tmp/xlink.#{(p.to_s == XLINK_PORT_PRIMARY.to_s ? 'pri' : 'sec')}.pid", 'w') {|f| f.write(pid) }
+      File.open("tmp/xlink.#{name}.pid", 'w') {|f| f.write(pid) }
     end
     
     w.start = xlink_start
     w.stop = lambda {
-      p = port.to_sym
-      File.open("tmp/xlink.#{(p.to_s == XLINK_PORT_PRIMARY.to_s ? 'pri' : 'sec')}.pid", 'w') {|f| f.write(pid) }
+      File.open("tmp/xlink.#{name}.pid", 'r') do |f| 
+        Process.kill("QUIT", f.readline.to_i)
+      end
     }
     #w.restart = xlink_start #TODO this should only be called if it's dead, but it should probably not be the same as start
     w.start_grace = 20.seconds

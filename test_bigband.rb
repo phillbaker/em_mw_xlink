@@ -54,6 +54,7 @@ class MyApp < Sinatra::Base
       :site => 'Wikipedia Spam Detection', 
       :title => 'Home', 
       :masthead => 'Wikipedia Spam Detection',
+      :menu => { :about => 'About', },
       :body => "Good #{tod}, there are #{samples} samples and #{links} links.", 
     })
   end

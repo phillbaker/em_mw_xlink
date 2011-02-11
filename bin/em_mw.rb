@@ -4,7 +4,7 @@
 #
 # == Usage
 #
-# ruby emmw.rb [OPTIONS] ... [start|stop]
+# ruby em_mw.rb [OPTIONS] ... [start|stop]
 #
 # -h, --help:
 #    show help
@@ -33,7 +33,7 @@ opts.each do |opt, arg|
     when '--help'
       RDoc::usage
       exit(0)
-    when 'start'
+    #when 'option' set value to variable
   end
 end
 
@@ -52,8 +52,7 @@ end
 #TOOD add commands to kill the sqlite file/generically clear the db and logs (before start: something like: -c)
 if action == 'start'
   if File.exist?(PID_FILE_PATH)
-    puts "Error: cannot start a bot. A pid.txt file was found. A bot may be already running."
-    exit(1)
+    abort("Error: cannot start a bot. A pid.txt file was found. A bot may be already running.")
   end
 
   EmMwXlink::start_db() #do this here so that the variables can be shared on all threads
@@ -103,27 +102,26 @@ if action == 'start'
         clean_pid()
         exit(1)
       elsif e.to_s == 'nickname in use'
-        puts 'That nickname is already in use. Use another. Exiting.'
         clean_pid()
-        exit(1)
+        abort('That nickname is already in use. Use another. Exiting.')
       else
         puts "Unknown error #{e}"
       end
     end
   end
   
-  pid_web = Process.fork do
-    trap("QUIT") do
-      exit(0)
-    end
-    EmMwXlink::start_web()
-  end
-  Process.detach(pid_web)
+  # pid_web = Process.fork do
+  #   trap("QUIT") do
+  #     exit(0)
+  #   end
+  #   EmMwXlink::start_web()
+  # end
+  # Process.detach(pid_web)
   
   File.open('tmp/xlink.pri.pid', 'w') {|f| f.write(pid_xlink_1) }
   File.open('tmp/xlink.sec.pid', 'w') {|f| f.write(pid_xlink_2) }
   File.open('tmp/irc.pid', 'w') {|f| f.write(pid_irc) }
-  File.open('tmp/web.pid', 'w') {|f| f.write(pid_web) }
+#  File.open('tmp/web.pid', 'w') {|f| f.write(pid_web) }
   Process.detach(pid_irc)#hang onto this one until later, just in case something goes wrong, this is the driving thread
   god.join #wait to make sure god starts
 else
@@ -131,7 +129,13 @@ else
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
-    ['xlink.pri', 'xlink.sec', 'irc', 'god', 'web'].each do |name|
+    [
+      'xlink.pri', 
+      'xlink.sec', 
+      'irc', 
+      'god', 
+      #'web'
+    ].each do |name|
       file = "tmp/#{name}.pid"
       File.open(file,'r') do |f|
         begin
