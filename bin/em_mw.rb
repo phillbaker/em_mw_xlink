@@ -109,6 +109,7 @@ if action == 'start'
       end
     end
   end
+  Process.detach(pid_irc)
   
   # pid_web = Process.fork do
   #   trap("QUIT") do
@@ -118,20 +119,19 @@ if action == 'start'
   # end
   # Process.detach(pid_web)
   
-  File.open('tmp/xlink.pri.pid', 'w') {|f| f.write(pid_xlink_1) }
-  File.open('tmp/xlink.sec.pid', 'w') {|f| f.write(pid_xlink_2) }
+  File.open("tmp/xlink.#{XLINK_PORT_PRIMARY.to_s}.pid", 'w') {|f| f.write(pid_xlink_1) }
+  File.open("tmp/xlink.#{XLINK_PORT_SECONDARY.to_s}.pid", 'w') {|f| f.write(pid_xlink_2) }
   File.open('tmp/irc.pid', 'w') {|f| f.write(pid_irc) }
 #  File.open('tmp/web.pid', 'w') {|f| f.write(pid_web) }
-  Process.detach(pid_irc)#hang onto this one until later, just in case something goes wrong, this is the driving thread
-  god.join #wait to make sure god starts
+  god.join #wait to make sure god starts, it daemonizes itself
 else
   unless File.exist?('tmp/irc.pid')
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
     [
-      'xlink.pri', 
-      'xlink.sec', 
+      "xlink.#{XLINK_PORT_PRIMARY.to_s}", 
+      "xlink.#{XLINK_PORT_SECONDARY.to_s}", 
       'irc', 
       'god', 
       #'web'

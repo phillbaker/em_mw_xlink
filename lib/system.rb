@@ -88,6 +88,7 @@ module EmMwXlink
     def start_web
       EmMwXlinkStats.secret = 'GHMFQPKNANMNTHQDECECSCWUCMSNSHSAFRGFTHHD'
       handler = Rack::Handler.get('mongrel')
+      #basically taken from the run! method in sinatra
       handler_name = handler.name.gsub(/.*::/, '')
       handler.run EmMwXlinkStats, :Host => '0.0.0.0', :Port => WEB_PORT do |server|
         [:INT, :TERM].each { |sig| trap(sig) { server.respond_to?(:stop!) ? server.stop! : server.stop } }
@@ -112,7 +113,7 @@ module EmMwXlink
     def start_god
       #auto bind to port
       #TODO move all of these to File.join(LOG_DIR + ...)
-      options = { :daemonize => true, :pid => 'tmp/god.pid', :port => "0", :syslog => false, :events => true, :config => 'xlink.god', :log => 'log/god.log', :log_level => :info } #:attach => , #TODO attach to the main pid
+      options = { :daemonize => true, :pid => 'tmp/god.pid', :port => GOD_PORT.to_s, :syslog => false, :events => false, :config => 'xlink.god', :log => 'log/god.log', :log_level => :info } #:attach => , #TODO attach to the main pid
       God::CLI::Run.new(options)
     end
   end

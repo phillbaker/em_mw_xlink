@@ -104,7 +104,7 @@ module EmMwXlink
         	    sleep(5) #wait for mediawiki propogation...
         	    #push to other, out of process EM clients to deal with; let them die/etc
         	    unless(self.config[:xlink_1].error?) 
-        	      @@irc_log.info('sending to numero uno')
+        	      #@@irc_log.info('sending to numero uno')
         	      self.config[:xlink_1].send_revision(fields)
       	      else
       	        #TODO need to deal with reconnecting to the restarted 1
@@ -124,7 +124,7 @@ module EmMwXlink
       #	resp.send_response
       #end
 
-      # Let the thread pool (20 Ruby threads) handle request
+      # Let the thread pool (Ruby threads) handle request
       EM.defer(process_line)#, callback)
     end
 
