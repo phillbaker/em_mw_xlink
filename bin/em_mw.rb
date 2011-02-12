@@ -121,7 +121,7 @@ else
     puts "Error: cannot stop the bot. No pid file exists. A bot may not have been started."
     exit(1)
   else
-    ['xlink.7890', 'xlink.8901', 'irc'].each do |name|
+    ['xlink.7890', 'xlink.8901', 'irc', 'god'].each do |name|
       file = "tmp/#{name}.pid"
       File.open(file,'r') do |f|
         begin

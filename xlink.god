@@ -74,6 +74,19 @@ require 'lib/system.rb'
         c.retry_within = 2.hours
         c.notify = 'phill'
       end
+      
+      if(port == '7890')#only put this on one of the ports
+        #monitor the db file, if it's not modified within a certain time...
+        #don't restart the xlink'ers, need to restart what?; notify for now
+        #TODO file is hardcoded...
+        #maybe do something like the flapping for unmonitoring if we fail this a bunch?
+        on.condition(:file_mtime) do |c|
+          c.interval = 10.minutes
+          c.path = 'en_wikipedia.sqlite'
+          c.max_age = 30.seconds #this should be way more than every time we get a sample
+          c.notify = 'phill'
+        end
+      end
     end
     
   end

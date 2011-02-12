@@ -84,7 +84,7 @@ module EmMwXlink
     
     def start_god
       #auto bind to port
-      options = { :daemonize => true, :pid => 'tmp/god.pid', :log => 'log/god.log', :port => "0", :syslog => false, :events => true, :config => 'xlink.god' } #:attach => , #TODO attach to the main pid
+      options = { :daemonize => true, :pid => 'tmp/god.pid', :log => 'log/god.log', :port => "0", :syslog => false, :events => false, :config => 'xlink.god', :log_level => :info  } #:attach => , #TODO attach to the main pid
       God::CLI::Run.new(options)
     end
   end
