@@ -82,7 +82,7 @@ module EmMwXlink
           if(headers[:content_type] =~ /^text\/html/ )
             #@@xlink_log.info("stored source: #{url}")
             fields = {
-              :source => http.response.to_s[0..10**3].gsub(/\x00/, ''), #only store 1000 characters for now
+              :source => http.response.to_s.gsub(/\x00/, ''),
               :headers => Marshal.dump(headers), 
               :url => url, 
               :revision_id => revision_id, 
